@@ -1,0 +1,187 @@
+{
+  "name": "ATS Automation Master",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ats-events",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook ATS Events",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "ats-events"
+    },
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 24, "triggerAtHour": 8 }] }
+      },
+      "id": "schedule-daily",
+      "name": "Reporte Diario 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 600]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.body.event_type || $json.event_type }}",
+        "rules": {
+          "rules": [
+            { "value2": "candidate.created", "output": 0 },
+            { "value2": "candidate.scored", "output": 1 },
+            { "value2": "stage.changed", "output": 2 },
+            { "value2": "interview.approved", "output": 3 }
+          ]
+        }
+      },
+      "id": "switch-event",
+      "name": "Switch event_type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@company.com",
+        "toEmail": "={{ $json.body.payload.email }}",
+        "subject": "Confirmación de aplicación — {{ $json.body.payload.jobTitle }}",
+        "text": "Hola {{ $json.body.payload.fullName }}, hemos recibido tu aplicación para {{ $json.body.payload.jobTitle }}."
+      },
+      "id": "email-created",
+      "name": "Email Confirmación Aplicación",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [760, 100],
+      "notes": "Rama: candidate.created"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.payload.classification }}",
+              "rightValue": "Senior",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "if-high-priority",
+      "name": "IF Perfil Crítico",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [760, 260],
+      "notes": "Rama: candidate.scored"
+    },
+    {
+      "parameters": {
+        "channel": "#talent-alerts",
+        "text": "Perfil crítico: {{ $json.body.payload.fullName }} — {{ $json.body.payload.classification }} para {{ $json.body.payload.jobTitle }}"
+      },
+      "id": "slack-alert",
+      "name": "Slack Alerta Talento",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1000, 240]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@company.com",
+        "toEmail": "={{ $json.body.payload.email }}",
+        "subject": "Actualización de tu proceso — {{ $json.body.payload.jobTitle }}",
+        "text": "Tu postulación avanzó a etapa: {{ $json.body.payload.stage }}"
+      },
+      "id": "email-stage",
+      "name": "Email Cambio Etapa",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [760, 420],
+      "notes": "Rama: stage.changed"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://calendar-api.example.com/events",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "candidateId", "value": "={{ $json.body.payload.candidateId }}" },
+            { "name": "email", "value": "={{ $json.body.payload.email }}" }
+          ]
+        }
+      },
+      "id": "calendar-sync",
+      "name": "Sync Calendario",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 580],
+      "notes": "Rama: interview.approved"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/dashboard_metrics",
+        "authentication": "genericCredentialType"
+      },
+      "id": "fetch-metrics",
+      "name": "Obtener Métricas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 600],
+      "notes": "Rama: report.daily (cron)"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@company.com",
+        "toEmail": "hiring-managers@company.com",
+        "subject": "Reporte diario ATS",
+        "text": "Resumen de métricas del día."
+      },
+      "id": "email-report",
+      "name": "Email Reporte HM",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [760, 600]
+    },
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [240, 800]
+    },
+    {
+      "parameters": {
+        "channel": "#ats-errors",
+        "text": "Error en ATS Automation: {{ $json.execution.error.message }}"
+      },
+      "id": "slack-error",
+      "name": "Slack Error Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [480, 800]
+    }
+  ],
+  "connections": {
+    "Webhook ATS Events": { "main": [[{ "node": "Switch event_type", "type": "main", "index": 0 }]] },
+    "Switch event_type": {
+      "main": [
+        [{ "node": "Email Confirmación Aplicación", "type": "main", "index": 0 }],
+        [{ "node": "IF Perfil Crítico", "type": "main", "index": 0 }],
+        [{ "node": "Email Cambio Etapa", "type": "main", "index": 0 }],
+        [{ "node": "Sync Calendario", "type": "main", "index": 0 }]
+      ]
+    },
+    "IF Perfil Crítico": { "main": [[{ "node": "Slack Alerta Talento", "type": "main", "index": 0 }], []] },
+    "Reporte Diario 08:00": { "main": [[{ "node": "Obtener Métricas", "type": "main", "index": 0 }]] },
+    "Obtener Métricas": { "main": [[{ "node": "Email Reporte HM", "type": "main", "index": 0 }]] },
+    "Error Trigger": { "main": [[{ "node": "Slack Error Alert", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "errorWorkflow": "" },
+  "tags": [{ "name": "ats" }, { "name": "ai-recruitment" }]
+}

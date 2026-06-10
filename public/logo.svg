@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <rect width="120" height="120" rx="24" fill="#1a3a5c"/>
+  <circle cx="60" cy="48" r="18" fill="#ff6b4a"/>
+  <path d="M30 88c0-16.569 13.431-30 30-30s30 13.431 30 30" stroke="#f4a261" stroke-width="8" stroke-linecap="round"/>
+  <text x="60" y="54" text-anchor="middle" fill="white" font-family="system-ui,sans-serif" font-size="14" font-weight="700">AI</text>
+</svg>
