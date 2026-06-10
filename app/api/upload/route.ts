@@ -4,9 +4,9 @@ import { rateLimit } from "@/lib/api/rate-limit";
 import { jsonError, jsonOk, jsonUnauthorized } from "@/lib/api/response";
 import { processCandidateAi } from "@/lib/ai/process-candidate";
 import { dispatchN8nEvent } from "@/lib/n8n/dispatch";
-import { extractTextFromPdf, normalizeCvText } from "@/lib/pdf/parser";
+import { extractCvText } from "@/lib/cv/extract-text";
 import { logger } from "@/lib/logger";
-import { ALLOWED_CV_MIME, MAX_CV_SIZE_BYTES } from "@/lib/constants/roles";
+import { isAllowedCvMime, MAX_CV_SIZE_BYTES } from "@/lib/constants/roles";
 import { sanitizeFilename } from "@/lib/utils/sanitize-filename";
 
 export async function POST(request: Request) {
@@ -36,8 +36,10 @@ export async function POST(request: Request) {
     return jsonError("Archivo y vacante son requeridos");
   }
 
-  if (file.type !== ALLOWED_CV_MIME) {
-    return jsonError("Solo se permiten archivos PDF");
+  if (!isAllowedCvMime(file.type)) {
+    return jsonError(
+      "Formato no permitido. Usa PDF o imagen del CV (JPG, PNG, WebP)."
+    );
   }
 
   if (file.size > MAX_CV_SIZE_BYTES) {
@@ -55,23 +57,34 @@ export async function POST(request: Request) {
   } | null = null;
 
   try {
-    const [text, jobRes] = await Promise.all([
-      extractTextFromPdf(buffer).then(normalizeCvText),
-      supabase
-        .from("jobs")
-        .select("id, title, description, requirements")
-        .eq("id", jobId)
-        .single(),
-    ]);
-    cvText = text;
-    job = jobRes.data;
-  } catch {
-    return jsonError("No se pudo leer el PDF");
+    cvText = await extractCvText(buffer, file.type);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "GEMINI_REQUIRED_FOR_IMAGE_CV") {
+      return jsonError(
+        "Para CVs en imagen se requiere GEMINI_API_KEY configurada.",
+        503
+      );
+    }
+    if (message === "EMPTY_CV_TEXT") {
+      return jsonError(
+        "No se pudo extraer texto del archivo. Prueba con mejor calidad o un PDF."
+      );
+    }
+    return jsonError("No se pudo leer el CV");
   }
 
-  if (!job) {
+  const { data: jobData, error: jobError } = await supabase
+    .from("jobs")
+    .select("id, title, description, requirements")
+    .eq("id", jobId)
+    .single();
+
+  if (jobError || !jobData) {
     return jsonError("Vacante no encontrada", 404);
   }
+
+  job = jobData;
 
   const candidateName =
     typeof fullName === "string" && fullName.trim()
@@ -151,7 +164,7 @@ export async function POST(request: Request) {
     const { error: uploadError } = await bgSupabase.storage
       .from("cvs")
       .upload(storagePath, buffer, {
-        contentType: ALLOWED_CV_MIME,
+        contentType: file.type,
         upsert: false,
       });
 

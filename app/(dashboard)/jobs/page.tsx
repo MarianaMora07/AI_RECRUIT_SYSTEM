@@ -14,10 +14,7 @@ async function JobsContent({
   const jobs = await fetchJobs();
 
   return (
-    <JobsClient
-      initialJobs={jobs}
-      highlightJobId={params.selected}
-    />
+    <JobsClient initialJobs={jobs} highlightJobId={params.selected} />
   );
 }
 

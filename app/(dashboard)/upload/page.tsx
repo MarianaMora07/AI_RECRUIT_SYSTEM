@@ -25,8 +25,14 @@ export default function UploadPage({
   searchParams: Promise<{ jobId?: string }>;
 }) {
   return (
-    <Suspense fallback={<Spinner className="mx-auto mt-20" size="lg" />}>
-      <UploadContent searchParams={searchParams} />
-    </Suspense>
+    <div className="flex justify-center w-full">
+      <Suspense
+        fallback={
+          <Spinner className="mx-auto mt-20" size="lg" />
+        }
+      >
+        <UploadContent searchParams={searchParams} />
+      </Suspense>
+    </div>
   );
 }

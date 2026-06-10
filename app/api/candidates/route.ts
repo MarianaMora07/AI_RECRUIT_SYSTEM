@@ -14,6 +14,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const jobId = searchParams.get("jobId");
   const stageParam = searchParams.get("stage");
+  const q = searchParams.get("q");
   const semantic = searchParams.get("semantic") === "true";
   const view = searchParams.get("view");
 
@@ -62,6 +63,11 @@ export async function GET(request: Request) {
 
   if (jobId) query = query.eq("job_id", jobId);
   if (stage) query = query.eq("pipeline_stage", stage);
+
+  const term = q?.trim().replace(/[%_,]/g, "");
+  if (term) {
+    query = query.or(`full_name.ilike.%${term}%,email.ilike.%${term}%`);
+  }
 
   const { data, error } = await query;
 

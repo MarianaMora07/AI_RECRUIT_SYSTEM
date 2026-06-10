@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -80,11 +79,7 @@ export function JobsClient({
       )}
 
       {showForm && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mb-6"
-        >
+        <div className="mb-6">
           <Card className="border-[var(--accent)]/20">
             <CardHeader>
               <CardTitle>Crear vacante</CardTitle>
@@ -132,7 +127,7 @@ export function JobsClient({
               </Button>
             </form>
           </Card>
-        </motion.div>
+        </div>
       )}
 
       {initialJobs.length === 0 ? (
@@ -146,19 +141,10 @@ export function JobsClient({
             los requisitos formateados.
           </p>
           <div className="grid gap-4 sm:grid-cols-2 items-stretch">
-            {initialJobs.map((job, i) => (
-              <motion.div
-                key={job.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
-                className="min-h-[200px]"
-              >
-                <JobCard
-                  job={job}
-                  highlighted={highlightJobId === job.id}
-                />
-              </motion.div>
+            {initialJobs.map((job) => (
+              <div key={job.id} className="min-h-[220px]">
+                <JobCard job={job} highlighted={highlightJobId === job.id} />
+              </div>
             ))}
           </div>
         </>

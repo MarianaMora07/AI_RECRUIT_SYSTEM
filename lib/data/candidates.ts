@@ -15,11 +15,44 @@ export interface PipelineFilters {
 export interface PipelineCandidate {
   id: string;
   full_name: string;
+  email?: string;
   pipeline_stage: PipelineStage;
   job_id: string;
+  stage_entered_at?: string | null;
   similarity_pct?: number;
   jobs?: { title: string } | { title: string }[] | null;
   scores?: Array<{ fit_score?: number; classification?: string }> | { fit_score?: number; classification?: string };
+}
+
+export interface CandidateListFilters {
+  jobId?: string;
+  q?: string;
+}
+
+export async function fetchCandidatesList(
+  filters: CandidateListFilters = {}
+) {
+  const { supabase, user } = await getServerAuth();
+  if (!user) return [];
+
+  const { jobId, q } = filters;
+
+  let query = supabase
+    .from("candidates")
+    .select(CANDIDATE_LIST_COLUMNS)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (jobId) query = query.eq("job_id", jobId);
+
+  const term = q?.trim().replace(/[%_,]/g, "");
+  if (term) {
+    query = query.or(`full_name.ilike.%${term}%,email.ilike.%${term}%`);
+  }
+
+  const { data } = await query;
+  return data ?? [];
 }
 
 export async function fetchPipelineCandidates(

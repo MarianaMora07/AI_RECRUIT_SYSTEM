@@ -1,128 +1,180 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { motion } from "framer-motion";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
-import { Avatar } from "@/components/ui/Avatar";
+import {
+  CandidateCard,
+  type CandidateCardData,
+} from "@/components/candidates/CandidateCard";
+import { STAGE_SLA_LABELS } from "@/lib/constants/sla";
 import { PIPELINE_STAGE_LABELS } from "@/lib/constants/roles";
 
-interface Score {
-  summary?: string;
-  classification?: string;
-  fit_score?: number;
-}
+const selectClass =
+  "rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm w-full sm:w-auto focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20";
 
-interface Candidate {
+interface JobOption {
   id: string;
-  full_name: string;
-  email: string;
-  pipeline_stage: string;
-  job_id: string;
-  scores?: Score[];
-  similarity_pct?: number;
+  title: string;
 }
 
 export function CandidatesClient({
-  jobId,
   initialCandidates,
+  jobs,
+  initialJobId,
+  initialQuery,
   initialSemantic,
 }: {
-  jobId: string;
-  initialCandidates: Candidate[];
+  initialCandidates: CandidateCardData[];
+  jobs: JobOption[];
+  initialJobId?: string;
+  initialQuery?: string;
   initialSemantic: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState(initialQuery ?? "");
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [semanticLoading, setSemanticLoading] = useState(false);
 
-  function toggleSemantic() {
-    const next = !initialSemantic;
-    setLoading(true);
+  useEffect(() => {
+    setFilterLoading(false);
+    setSemanticLoading(false);
+  }, [initialCandidates, initialJobId, initialQuery, initialSemantic]);
+
+  function pushParams(updates: Record<string, string | boolean | undefined>) {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("semantic", String(next));
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === undefined || value === "" || value === false) {
+        params.delete(key);
+      } else {
+        params.set(key, String(value));
+      }
+    }
+
+    if (!params.get("jobId")) params.delete("semantic");
+
     router.push(`/candidates?${params.toString()}`);
   }
 
-  if (!jobId) {
-    return (
-      <Alert variant="info" title="Selecciona una vacante">
-        Ve a Vacantes y haz clic en &quot;Ver candidatos&quot; para un job específico.
-      </Alert>
-    );
+  function applyFilters(jobId: string, q: string) {
+    setFilterLoading(true);
+    pushParams({ jobId: jobId || undefined, q: q.trim() || undefined });
   }
+
+  function toggleSemantic() {
+    if (!initialJobId) return;
+    setSemanticLoading(true);
+    pushParams({ semantic: !initialSemantic });
+  }
+
+  const semanticActive = initialSemantic && Boolean(initialJobId);
 
   return (
     <div>
       <PageHeader
         title="Candidatos"
-        subtitle={`${initialCandidates.length} perfil${initialCandidates.length !== 1 ? "es" : ""} encontrado${initialCandidates.length !== 1 ? "s" : ""}`}
+        subtitle={`${initialCandidates.length} postulación${initialCandidates.length !== 1 ? "es" : ""} en el sistema`}
         action={
           <Button
-            variant={initialSemantic ? "primary" : "secondary"}
+            variant={semanticActive ? "primary" : "secondary"}
             size="sm"
             onClick={toggleSemantic}
-            loading={loading}
+            loading={semanticLoading}
+            disabled={!initialJobId}
+            title={
+              !initialJobId
+                ? "Selecciona una vacante para activar ranking IA"
+                : undefined
+            }
           >
-            {initialSemantic ? "✨ Ranking IA activo" : "Activar ranking IA"}
+            {semanticActive ? "✨ Ranking IA activo" : "Activar ranking IA"}
           </Button>
         }
       />
 
+      <p className="text-sm text-[var(--foreground-muted)] mb-4">
+        SLA por etapa:{" "}
+        {Object.entries(STAGE_SLA_LABELS)
+          .filter(([k]) => k !== "hired" && k !== "rejected")
+          .map(([, v]) => v)
+          .join(" · ")}
+      </p>
+
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="sm:w-56">
+          <label className="text-xs font-semibold text-[var(--foreground-muted)] block mb-1">
+            Vacante
+          </label>
+          <select
+            className={selectClass}
+            value={initialJobId ?? ""}
+            onChange={(e) => applyFilters(e.target.value, query)}
+            disabled={filterLoading}
+          >
+            <option value="">Todas las vacantes</option>
+            {jobs.map((j) => (
+              <option key={j.id} value={j.id}>
+                {j.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1">
+          <Input
+            label="Buscar por nombre o correo"
+            placeholder="Ej: Mariana, @gmail.com"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                applyFilters(initialJobId ?? "", query);
+              }
+            }}
+          />
+        </div>
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={() => applyFilters(initialJobId ?? "", query)}
+            disabled={filterLoading}
+            className="rounded-xl px-4 py-2.5 text-sm font-semibold bg-[var(--accent)] text-white hover:opacity-90 disabled:opacity-50"
+          >
+            Buscar
+          </button>
+        </div>
+      </div>
+
+      {semanticActive && (
+        <Alert variant="info" className="mb-4">
+          Candidatos ordenados por afinidad semántica con la vacante seleccionada.
+        </Alert>
+      )}
+
       {initialCandidates.length === 0 ? (
-        <Alert variant="info" title="Sin candidatos">
-          Sube CVs para esta vacante desde la sección Cargar CV.
+        <Alert variant="info" title="Sin resultados">
+          No hay candidatos con los filtros actuales. Sube CVs desde Cargar CV.
         </Alert>
       ) : (
-        <div className="space-y-3">
-          {initialCandidates.map((c, idx) => {
-            const score = Array.isArray(c.scores) ? c.scores[0] : c.scores;
-            return (
-              <motion.div
+        <>
+          <p className="text-sm text-[var(--foreground-muted)] mb-4">
+            Etapas: {Object.values(PIPELINE_STAGE_LABELS).join(", ")}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {initialCandidates.map((c, idx) => (
+              <CandidateCard
                 key={c.id}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.04 }}
-              >
-                <Card className="card-elevated !p-4 md:!p-5">
-                  <div className="flex items-start gap-3 md:gap-4">
-                    <Avatar name={c.full_name} size="md" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {initialSemantic && (
-                          <span className="text-sm font-extrabold gradient-text">#{idx + 1}</span>
-                        )}
-                        <Link href={`/candidates/${c.id}`} className="font-bold text-base hover:text-[var(--accent)] truncate">
-                          {c.full_name}
-                        </Link>
-                      </div>
-                      <p className="text-sm text-[var(--foreground-muted)] truncate">{c.email}</p>
-                      {score?.summary && (
-                        <p className="text-sm mt-2 line-clamp-2 text-[var(--foreground-muted)]">{score.summary}</p>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <Badge>
-                        {PIPELINE_STAGE_LABELS[c.pipeline_stage as keyof typeof PIPELINE_STAGE_LABELS] ?? c.pipeline_stage}
-                      </Badge>
-                      {score?.classification && <Badge variant="info">{score.classification}</Badge>}
-                      {(c.similarity_pct ?? score?.fit_score) != null && (
-                        <span className="text-sm font-bold text-[var(--accent)]">
-                          {c.similarity_pct ?? score?.fit_score}% afinidad
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
+                candidate={c}
+                rank={semanticActive ? idx + 1 : undefined}
+                showJob={!initialJobId}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

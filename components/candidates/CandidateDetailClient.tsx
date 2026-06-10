@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
+import { SlaBadge } from "@/components/ui/SlaBadge";
+import { STAGE_SLA_LABELS } from "@/lib/constants/sla";
 import { PIPELINE_STAGE_LABELS, type PipelineStage } from "@/lib/constants/roles";
 import { getCandidateScore } from "@/lib/utils/candidate-score";
 
@@ -20,6 +22,7 @@ export interface CandidateDetailData {
   email: string;
   phone?: string | null;
   pipeline_stage: PipelineStage;
+  stage_entered_at?: string | null;
   created_at?: string;
   scores?: Array<{
     summary?: string;
@@ -137,9 +140,18 @@ export function CandidateDetailClient({
             </p>
           )}
         </div>
-        <Badge variant="info" className="shrink-0">
-          {PIPELINE_STAGE_LABELS[candidate.pipeline_stage]}
-        </Badge>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <Badge variant="info">
+            {PIPELINE_STAGE_LABELS[candidate.pipeline_stage]}
+          </Badge>
+          <SlaBadge
+            stage={candidate.pipeline_stage}
+            stageEnteredAt={candidate.stage_entered_at}
+          />
+          <span className="text-[10px] text-[var(--foreground-muted)] text-right max-w-[140px]">
+            SLA: {STAGE_SLA_LABELS[candidate.pipeline_stage]}
+          </span>
+        </div>
       </motion.div>
 
       {error && (

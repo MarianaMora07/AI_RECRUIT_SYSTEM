@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
+import { SlaBadge } from "@/components/ui/SlaBadge";
 import {
   PIPELINE_STAGES,
   PIPELINE_STAGE_LABELS,
@@ -269,6 +270,11 @@ export function PipelineClient({
                               </p>
                             )}
                             <div className="flex flex-wrap gap-1 mt-1">
+                              <SlaBadge
+                                stage={c.pipeline_stage}
+                                stageEnteredAt={c.stage_entered_at}
+                                className="!text-[9px]"
+                              />
                               {affinity != null && (
                                 <span className="text-[10px] font-bold text-[var(--accent)]">
                                   {affinity}% afinidad
