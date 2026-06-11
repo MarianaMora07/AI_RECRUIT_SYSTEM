@@ -53,7 +53,7 @@ export default function RegisterPage() {
       return;
     }
 
-    await supabase.auth.signOut();
+    // Keep the PKCE verifier cookie until the user opens the confirmation link.
     setLoading(false);
     router.push(`/verify-email?email=${encodeURIComponent(parsed.data.email)}`);
     router.refresh();
