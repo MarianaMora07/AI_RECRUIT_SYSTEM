@@ -5,10 +5,12 @@ import {
   CANDIDATE_LIST_COLUMNS,
   CANDIDATE_PIPELINE_EXTENDED_COLUMNS,
 } from "@/lib/constants/queries";
+import { sortCandidatesByAffinity } from "@/lib/utils/candidate-ranking";
 
 export interface PipelineFilters {
   jobId?: string;
   stage?: PipelineStage;
+  /** When undefined with jobId, defaults to semantic ranking. */
   semantic?: boolean;
 }
 
@@ -30,12 +32,28 @@ export interface CandidateListFilters {
 }
 
 export async function fetchCandidatesList(
-  filters: CandidateListFilters = {}
+  filters: CandidateListFilters = {},
+  options: { rankByAffinity?: boolean } = {}
 ) {
   const { supabase, user } = await getServerAuth();
   if (!user) return [];
 
   const { jobId, q } = filters;
+  const { rankByAffinity = Boolean(jobId) } = options;
+
+  if (jobId && rankByAffinity) {
+    const ranked = await fetchCandidatesByJob(jobId, true);
+    let results = ranked as PipelineCandidate[];
+    const term = q?.trim().toLowerCase();
+    if (term) {
+      results = results.filter(
+        (c) =>
+          c.full_name.toLowerCase().includes(term) ||
+          (c.email?.toLowerCase().includes(term) ?? false)
+      );
+    }
+    return results;
+  }
 
   let query = supabase
     .from("candidates")
@@ -52,7 +70,8 @@ export async function fetchCandidatesList(
   }
 
   const { data } = await query;
-  return data ?? [];
+  const results = (data ?? []) as PipelineCandidate[];
+  return sortCandidatesByAffinity(results);
 }
 
 export async function fetchPipelineCandidates(
@@ -62,8 +81,9 @@ export async function fetchPipelineCandidates(
   if (!user) return [];
 
   const { jobId, stage, semantic } = filters;
+  const useSemantic = Boolean(jobId) && semantic !== false;
 
-  if (semantic && jobId) {
+  if (useSemantic && jobId) {
     const { data: job } = await supabase
       .from("jobs")
       .select("embedding")
@@ -98,7 +118,7 @@ export async function fetchPipelineCandidates(
   const { data } = await query;
   let results = (data ?? []) as PipelineCandidate[];
 
-  if (semantic && jobId && results.length > 0) {
+  if (useSemantic && jobId && results.length > 0) {
     type WithScores = { scores?: { fit_score?: number }[] | { fit_score?: number } };
     results = [...results].sort((a, b) => {
       const scoreA = getFitScore(a as WithScores);

@@ -7,16 +7,19 @@ import {
   fetchRecentJobs,
 } from "@/lib/data/dashboard";
 import { fetchDashboardMetrics } from "@/lib/data/metrics";
+import { fetchScheduledInterviews } from "@/lib/data/interviews";
 import { fetchNotifications } from "@/lib/data/notifications";
 
 export const revalidate = 15;
 
 export default async function DashboardPage() {
-  const [metrics, recentJobs, pipelinePreview, notifications] = await Promise.all([
+  const [metrics, recentJobs, pipelinePreview, notifications, scheduledInterviews] =
+    await Promise.all([
     fetchDashboardMetrics(),
     fetchRecentJobs(5),
     fetchPipelinePreview(3),
     fetchNotifications(),
+    fetchScheduledInterviews(),
   ]);
 
   if (!metrics) {
@@ -38,6 +41,7 @@ export default async function DashboardPage() {
         metrics={metrics}
         recentJobs={recentJobs}
         pipelinePreview={pipelinePreview}
+        scheduledInterviews={scheduledInterviews}
       />
     </>
   );

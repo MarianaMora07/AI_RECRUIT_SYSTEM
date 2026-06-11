@@ -14,6 +14,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { SlaBadge } from "@/components/ui/SlaBadge";
 import { STAGE_SLA_LABELS } from "@/lib/constants/sla";
 import {
+  getPipelineAdjacentStage,
   isHiringManager,
   PIPELINE_STAGE_LABELS,
   type HiringManagerDecisionTarget,
@@ -25,6 +26,7 @@ import { HiringManagerDecisionCard } from "./HiringManagerDecisionCard";
 import { FormModal } from "@/components/ui/FormModal";
 import { PreOfferForm, type PreOfferData } from "./PreOfferForm";
 import { PreOfferTrigger } from "./PreOfferTrigger";
+import { ScheduleInterviewModal } from "@/components/pipeline/ScheduleInterviewModal";
 import { CopyTrackingLink } from "@/components/track/CopyTrackingLink";
 import { getCandidateTrackingUrl } from "@/lib/utils/candidate-tracking";
 
@@ -52,12 +54,14 @@ export interface CandidateDetailData {
   jobs?: { title: string; requirements: string } | { title: string; requirements: string }[];
   interviews?: Array<{
     id?: string;
+    scheduled_at?: string | null;
     rating?: number | null;
     notes?: string | null;
     approved?: boolean | null;
     created_at?: string;
   }> | {
     id?: string;
+    scheduled_at?: string | null;
     rating?: number | null;
     notes?: string | null;
     approved?: boolean | null;
@@ -93,6 +97,8 @@ export function CandidateDetailClient({
   }>({ open: false, stage: null });
   const [updating, setUpdating] = useState(false);
   const [preOfferOpen, setPreOfferOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [pendingStage, setPendingStage] = useState<PipelineStage | null>(null);
   const [preOffer, setPreOffer] = useState<PreOfferData | null | undefined>(
     Array.isArray(initial.candidate_offers)
       ? initial.candidate_offers[0]
@@ -134,17 +140,20 @@ export function CandidateDetailClient({
   async function updateStage(
     stage: PipelineStage,
     confirmed = false,
-    feedback?: { rating: number; notes: string }
+    feedback?: { rating: number; notes: string },
+    scheduledAt?: string
   ) {
     setUpdating(true);
     const res = await fetch(`/api/candidates/${candidate.id}/stage`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stage, confirmed, feedback }),
+      body: JSON.stringify({ stage, confirmed, feedback, scheduledAt }),
     });
     const data = await res.json();
     setUpdating(false);
     setModal({ open: false, stage: null });
+    setScheduleOpen(false);
+    setPendingStage(null);
 
     if (data.success) {
       setCandidate(data.data);
@@ -155,6 +164,11 @@ export function CandidateDetailClient({
   }
 
   function handleStageClick(stage: PipelineStage) {
+    if (stage === "interview") {
+      setPendingStage(stage);
+      setScheduleOpen(true);
+      return;
+    }
     if (stage === "hired" || stage === "rejected") {
       setModal({ open: true, stage });
     } else {
@@ -177,6 +191,10 @@ export function CandidateDetailClient({
   const jobTitle = Array.isArray(candidate.jobs)
     ? candidate.jobs[0]?.title
     : candidate.jobs?.title;
+  const latestInterview = Array.isArray(candidate.interviews)
+    ? candidate.interviews[0]
+    : candidate.interviews;
+  const scheduledAt = latestInterview?.scheduled_at;
 
   return (
     <div>
@@ -218,6 +236,19 @@ export function CandidateDetailClient({
       {error && (
         <Alert variant="error" className="mb-4" onClose={() => setError("")}>
           {error}
+        </Alert>
+      )}
+
+      {scheduledAt && (
+        <Alert variant="info" className="mb-6" title="Entrevista programada">
+          {new Date(scheduledAt).toLocaleString("es-CL", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </Alert>
       )}
 
@@ -366,20 +397,65 @@ export function CandidateDetailClient({
         <Card>
           <CardHeader>
             <CardTitle>Mover etapa</CardTitle>
+            <p className="text-sm text-[var(--foreground-muted)]">
+              Avanza o retrocede un paso a la vez en el proceso.
+            </p>
           </CardHeader>
           {canManagePipeline ? (
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(PIPELINE_STAGE_LABELS) as PipelineStage[]).map((stage) => (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold">
+                Etapa actual:{" "}
+                <span className="text-[var(--accent)]">
+                  {PIPELINE_STAGE_LABELS[candidate.pipeline_stage]}
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2">
                 <Button
-                  key={stage}
                   size="sm"
-                  variant={candidate.pipeline_stage === stage ? "primary" : "secondary"}
-                  onClick={() => handleStageClick(stage)}
-                  disabled={candidate.pipeline_stage === stage || updating}
+                  variant="secondary"
+                  onClick={() => {
+                    const prev = getPipelineAdjacentStage(
+                      candidate.pipeline_stage,
+                      "prev"
+                    );
+                    if (prev) handleStageClick(prev);
+                  }}
+                  disabled={
+                    !getPipelineAdjacentStage(candidate.pipeline_stage, "prev") ||
+                    updating
+                  }
                 >
-                  {PIPELINE_STAGE_LABELS[stage]}
+                  ← Retroceder
                 </Button>
-              ))}
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => {
+                    const next = getPipelineAdjacentStage(
+                      candidate.pipeline_stage,
+                      "next"
+                    );
+                    if (next) handleStageClick(next);
+                  }}
+                  disabled={
+                    !getPipelineAdjacentStage(candidate.pipeline_stage, "next") ||
+                    updating
+                  }
+                >
+                  Avanzar →
+                </Button>
+                {candidate.pipeline_stage !== "rejected" &&
+                  candidate.pipeline_stage !== "hired" && (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleStageClick("rejected")}
+                      disabled={updating}
+                    >
+                      Descartar candidato
+                    </Button>
+                  )}
+              </div>
             </div>
           ) : (
             <Alert variant="info">
@@ -403,6 +479,21 @@ export function CandidateDetailClient({
           onSaved={(offer) => setPreOffer(offer)}
         />
       </FormModal>
+
+      <ScheduleInterviewModal
+        open={scheduleOpen}
+        onClose={() => {
+          setScheduleOpen(false);
+          setPendingStage(null);
+        }}
+        candidateName={candidate.full_name}
+        loading={updating}
+        onConfirm={(scheduledAt) => {
+          if (pendingStage === "interview") {
+            void updateStage("interview", false, undefined, scheduledAt);
+          }
+        }}
+      />
 
       <Modal
         open={modal.open}

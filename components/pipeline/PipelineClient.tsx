@@ -10,9 +10,11 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { Modal } from "@/components/ui/Modal";
+import { ScheduleInterviewModal } from "@/components/pipeline/ScheduleInterviewModal";
 import { Avatar } from "@/components/ui/Avatar";
 import { SlaBadge } from "@/components/ui/SlaBadge";
 import {
+  getPipelineAdjacentStage,
   PIPELINE_STAGES,
   PIPELINE_STAGE_LABELS,
   type PipelineStage,
@@ -65,6 +67,11 @@ export function PipelineClient({
     candidateId: string;
     stage: PipelineStage | null;
   }>({ open: false, candidateId: "", stage: null });
+  const [scheduleModal, setScheduleModal] = useState<{
+    open: boolean;
+    candidateId: string;
+    candidateName: string;
+  }>({ open: false, candidateId: "", candidateName: "" });
   const [updating, setUpdating] = useState(false);
   const [filterLoading, setFilterLoading] = useState(false);
 
@@ -102,8 +109,8 @@ export function PipelineClient({
     }
 
     if (updates.semantic !== undefined) {
-      if (updates.semantic) params.set("semantic", "true");
-      else params.delete("semantic");
+      if (updates.semantic) params.delete("semantic");
+      else params.set("semantic", "false");
     }
 
     router.push(`/pipeline?${params.toString()}`);
@@ -112,24 +119,37 @@ export function PipelineClient({
   async function moveCandidate(
     candidateId: string,
     stage: PipelineStage,
-    confirmed = false
+    options: { confirmed?: boolean; scheduledAt?: string } = {}
   ) {
     setUpdating(true);
     await fetch(`/api/candidates/${candidateId}/stage`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stage, confirmed }),
+      body: JSON.stringify({
+        stage,
+        confirmed: options.confirmed,
+        scheduledAt: options.scheduledAt,
+      }),
     });
     setUpdating(false);
     setModal({ open: false, candidateId: "", stage: null });
+    setScheduleModal({ open: false, candidateId: "", candidateName: "" });
     router.refresh();
   }
 
-  function handleMove(candidateId: string, stage: PipelineStage) {
+  function handleMove(
+    candidateId: string,
+    stage: PipelineStage,
+    candidateName?: string
+  ) {
+    if (stage === "interview") {
+      setScheduleModal({ open: true, candidateId, candidateName: candidateName ?? "" });
+      return;
+    }
     if (stage === "hired" || stage === "rejected") {
       setModal({ open: true, candidateId, stage });
     } else {
-      moveCandidate(candidateId, stage);
+      void moveCandidate(candidateId, stage);
     }
   }
 
@@ -199,14 +219,15 @@ export function PipelineClient({
                 : undefined
             }
           >
-            {semanticActive ? "✨ Ranking IA activo" : "Activar ranking IA"}
+            {semanticActive ? "✨ Orden por afinidad" : "Orden cronológico"}
           </Button>
         </div>
       </div>
 
       {semanticActive && (
         <Alert variant="info" className="mb-4">
-          Candidatos ordenados por afinidad semántica con la vacante seleccionada.
+          Candidatos ordenados por afinidad semántica (mayor a menor) para la
+          vacante seleccionada.
         </Alert>
       )}
 
@@ -300,18 +321,56 @@ export function PipelineClient({
                           </div>
                         </div>
                         {canManagePipeline && (
-                          <div className="flex flex-wrap gap-1">
-                            {PIPELINE_STAGES.filter((s) => s !== stage).map(
-                              (target) => (
-                                <button
-                                  key={target}
-                                  onClick={() => handleMove(c.id, target)}
-                                  className="text-[10px] px-2 py-1 rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] hover:gradient-brand hover:text-white transition-all font-semibold"
-                                >
-                                  → {PIPELINE_STAGE_LABELS[target]}
-                                </button>
-                              )
-                            )}
+                          <div className="flex flex-wrap items-center gap-1">
+                            {(() => {
+                              const prevStage = getPipelineAdjacentStage(
+                                c.pipeline_stage,
+                                "prev"
+                              );
+                              const nextStage = getPipelineAdjacentStage(
+                                c.pipeline_stage,
+                                "next"
+                              );
+                              return (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      prevStage &&
+                                      handleMove(c.id, prevStage, c.full_name)
+                                    }
+                                    disabled={!prevStage || updating}
+                                    className="text-[10px] px-2 py-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground-muted)] hover:bg-[var(--surface-hover)] disabled:opacity-40 disabled:pointer-events-none transition-all font-semibold"
+                                  >
+                                    ← Retroceder
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      nextStage &&
+                                      handleMove(c.id, nextStage, c.full_name)
+                                    }
+                                    disabled={!nextStage || updating}
+                                    className="text-[10px] px-2 py-1 rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] hover:gradient-brand hover:text-white disabled:opacity-40 disabled:pointer-events-none transition-all font-semibold"
+                                  >
+                                    Avanzar →
+                                  </button>
+                                  {c.pipeline_stage !== "rejected" &&
+                                    c.pipeline_stage !== "hired" && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleMove(c.id, "rejected")
+                                        }
+                                        disabled={updating}
+                                        className="text-[10px] px-2 py-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all font-semibold"
+                                      >
+                                        Descartar
+                                      </button>
+                                    )}
+                                </>
+                              );
+                            })()}
                           </div>
                         )}
                         {isHiringManager && stage === "interview" && (
@@ -340,7 +399,7 @@ export function PipelineClient({
         confirmLabel="Confirmar"
         onConfirm={() =>
           modal.stage &&
-          moveCandidate(modal.candidateId, modal.stage, true)
+          moveCandidate(modal.candidateId, modal.stage, { confirmed: true })
         }
         loading={updating}
       >
@@ -350,6 +409,18 @@ export function PipelineClient({
         </strong>
         ?
       </Modal>
+
+      <ScheduleInterviewModal
+        open={scheduleModal.open}
+        onClose={() =>
+          setScheduleModal({ open: false, candidateId: "", candidateName: "" })
+        }
+        candidateName={scheduleModal.candidateName}
+        loading={updating}
+        onConfirm={(scheduledAt) =>
+          moveCandidate(scheduleModal.candidateId, "interview", { scheduledAt })
+        }
+      />
     </div>
   );
 }

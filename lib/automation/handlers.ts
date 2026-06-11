@@ -201,6 +201,7 @@ async function handleInterviewApproved(payload: Record<string, unknown>) {
     fullName,
     jobTitle,
     trackingUrl: trackingUrlFromPayload(payload),
+    scheduledAt: payload.scheduledAt ? String(payload.scheduledAt) : null,
   });
   const result = await sendEmail({
     to: email,

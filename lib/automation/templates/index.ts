@@ -165,24 +165,49 @@ export function interviewScheduledTemplate(params: {
   fullName: string;
   jobTitle: string;
   trackingUrl?: string;
+  scheduledAt?: string | null;
 }) {
   const name = escapeHtml(params.fullName);
   const job = escapeHtml(params.jobTitle);
+  const scheduledLabel = params.scheduledAt
+    ? new Date(params.scheduledAt).toLocaleString("es-CL", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
+  const scheduleBlock = scheduledLabel
+    ? emailHighlightBox(
+        `Entrevista programada: <strong>${escapeHtml(scheduledLabel)}</strong>`
+      )
+    : emailHighlightBox(
+        "El Equipo de Talento te contactará pronto para coordinar fecha y modalidad."
+      );
 
   return {
-    subject: `Entrevista — ${params.jobTitle}`,
+    subject: scheduledLabel
+      ? `Entrevista programada — ${params.jobTitle}`
+      : `Entrevista — ${params.jobTitle}`,
     html: renderEmailLayout({
-      preheader: "Tu proceso avanzó a entrevista",
+      preheader: scheduledLabel
+        ? `Tu entrevista está programada para ${scheduledLabel}`
+        : "Tu proceso avanzó a entrevista",
       title: "Etapa de entrevista",
       bodyHtml: `
         ${emailHeading("Próxima etapa: entrevista")}
         ${emailParagraph(`Hola <strong>${name}</strong>,`)}
         ${emailParagraph(`Tu postulación para <strong>${job}</strong> avanzó a la etapa de entrevista.`)}
-        ${emailHighlightBox("El Equipo de Talento te contactará pronto para coordinar fecha y modalidad.")}
+        ${scheduleBlock}
         ${emailTrackingBlock(params.trackingUrl)}
       `,
     }),
-    text: `Hola ${params.fullName}, tu proceso para ${params.jobTitle} avanzó a entrevista.${emailTrackingText(params.trackingUrl)}`,
+    text: scheduledLabel
+      ? `Hola ${params.fullName}, tu entrevista para ${params.jobTitle} está programada para ${scheduledLabel}.${emailTrackingText(params.trackingUrl)}`
+      : `Hola ${params.fullName}, tu proceso para ${params.jobTitle} avanzó a entrevista.${emailTrackingText(params.trackingUrl)}`,
   };
 }
 

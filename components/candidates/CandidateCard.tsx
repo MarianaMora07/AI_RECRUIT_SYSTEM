@@ -36,10 +36,12 @@ function getJobTitle(jobs?: CandidateCardData["jobs"]) {
 export function CandidateCard({
   candidate,
   rank,
+  highlightTop = false,
   showJob = false,
 }: {
   candidate: CandidateCardData;
   rank?: number;
+  highlightTop?: boolean;
   showJob?: boolean;
 }) {
   const score = getScore(candidate.scores);
@@ -47,13 +49,24 @@ export function CandidateCard({
   const affinity = candidate.similarity_pct ?? score?.fit_score;
 
   return (
-    <Card className="card-elevated !p-4 md:!p-5 h-full">
+    <Card
+      className={`card-elevated !p-4 md:!p-5 h-full ${
+        highlightTop
+          ? "ring-2 ring-[var(--accent)]/50 border-[var(--accent)]/30 bg-[var(--accent-soft)]/20"
+          : ""
+      }`}
+    >
       <div className="flex items-start gap-3 md:gap-4">
         <Avatar name={candidate.full_name} size="md" />
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             {rank != null && (
               <span className="text-sm font-extrabold gradient-text">#{rank}</span>
+            )}
+            {highlightTop && (
+              <Badge variant="success" className="!text-[10px]">
+                Top afinidad
+              </Badge>
             )}
             <Link
               href={`/candidates/${candidate.id}`}

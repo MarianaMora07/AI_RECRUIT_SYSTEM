@@ -31,10 +31,10 @@ async function PipelineContent({
   const params = await searchParams;
   const jobId = params.jobId;
   const stage = parseStage(params.stage);
-  const semantic = params.semantic === "true";
+  const semantic = jobId ? params.semantic !== "false" : false;
 
   const [candidates, jobs, auth] = await Promise.all([
-    fetchPipelineCandidates({ jobId, stage, semantic }),
+    fetchPipelineCandidates({ jobId, stage, semantic: jobId ? semantic : false }),
     fetchJobsMinimal(),
     getServerAuth(),
   ]);

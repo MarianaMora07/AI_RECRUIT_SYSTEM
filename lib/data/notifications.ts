@@ -15,6 +15,7 @@ export type NotificationType =
   | "sla_breached"
   | "new_candidate"
   | "interview_pending"
+  | "interview_scheduled"
   | "technical_approved";
 
 export interface AppNotification {
@@ -30,6 +31,7 @@ export interface AppNotification {
 interface InterviewSnippet {
   rating?: number | null;
   notes?: string | null;
+  scheduled_at?: string | null;
 }
 
 interface OfferSnippet {
@@ -48,6 +50,7 @@ interface CandidateRow {
 }
 
 const NEW_CANDIDATE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const UPCOMING_INTERVIEW_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 function jobTitle(jobs: CandidateRow["jobs"]) {
   if (!jobs) return "Vacante";
@@ -118,6 +121,32 @@ function buildRecruiterNotifications(rows: CandidateRow[]): AppNotification[] {
       });
     }
 
+    if (row.pipeline_stage === "interview") {
+      const interview = latestInterview(row);
+      const scheduledAt = interview?.scheduled_at;
+      if (
+        scheduledAt &&
+        new Date(scheduledAt).getTime() >= now &&
+        new Date(scheduledAt).getTime() - now <= UPCOMING_INTERVIEW_WINDOW_MS
+      ) {
+        notifications.push({
+          id: `interview-scheduled-${row.id}`,
+          type: "interview_scheduled",
+          title: "Entrevista próxima",
+          message: `${row.full_name} — ${new Date(scheduledAt).toLocaleString("es-CL", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })} (${job})`,
+          href: `/candidates/${row.id}`,
+          variant: "info",
+          createdAt: scheduledAt,
+        });
+      }
+    }
+
     if (
       row.pipeline_stage === "applied" &&
       now - new Date(row.created_at).getTime() <= NEW_CANDIDATE_WINDOW_MS
@@ -152,11 +181,12 @@ function buildHiringManagerNotifications(rows: CandidateRow[]): AppNotification[
 }
 
 const PRIORITY: Record<NotificationType, number> = {
-  technical_approved: 0,
-  sla_breached: 1,
-  interview_pending: 2,
-  sla_warning: 3,
-  new_candidate: 4,
+  interview_scheduled: 0,
+  technical_approved: 1,
+  sla_breached: 2,
+  interview_pending: 3,
+  sla_warning: 4,
+  new_candidate: 5,
 };
 
 export async function fetchNotifications(): Promise<AppNotification[]> {
@@ -169,7 +199,7 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
   const { data } = await supabase
     .from("candidates")
     .select(
-      "id, full_name, pipeline_stage, stage_entered_at, created_at, jobs(title), interviews(rating, notes), candidate_offers(status)"
+      "id, full_name, pipeline_stage, stage_entered_at, created_at, jobs(title), interviews(rating, notes, scheduled_at), candidate_offers(status)"
     )
     .is("deleted_at", null)
     .in("pipeline_stage", ["applied", "evaluation", "interview", "interview_approved"])

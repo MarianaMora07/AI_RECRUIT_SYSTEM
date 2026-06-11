@@ -16,11 +16,22 @@ export const interviewFeedbackSchema = z.object({
     .max(2000),
 });
 
-export const updateStageSchema = z.object({
-  stage: z.enum(PIPELINE_STAGES),
-  confirmed: z.boolean().optional(),
-  feedback: interviewFeedbackSchema.optional(),
-});
+export const updateStageSchema = z
+  .object({
+    stage: z.enum(PIPELINE_STAGES),
+    confirmed: z.boolean().optional(),
+    feedback: interviewFeedbackSchema.optional(),
+    scheduledAt: z.string().datetime().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.stage === "interview" && !data.scheduledAt) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Indica fecha y hora para la entrevista",
+        path: ["scheduledAt"],
+      });
+    }
+  });
 
 export type CreateCandidateInput = z.infer<typeof createCandidateSchema>;
 export type UpdateStageInput = z.infer<typeof updateStageSchema>;

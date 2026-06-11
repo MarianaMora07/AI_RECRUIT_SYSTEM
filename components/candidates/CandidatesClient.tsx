@@ -12,6 +12,10 @@ import {
 } from "@/components/candidates/CandidateCard";
 import { STAGE_SLA_LABELS } from "@/lib/constants/sla";
 import { PIPELINE_STAGE_LABELS } from "@/lib/constants/roles";
+import {
+  getAffinityScore,
+  groupCandidatesByAffinityTier,
+} from "@/lib/utils/candidate-ranking";
 
 const selectClass =
   "rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm w-full sm:w-auto focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20";
@@ -69,10 +73,20 @@ export function CandidatesClient({
   function toggleSemantic() {
     if (!initialJobId) return;
     setSemanticLoading(true);
-    pushParams({ semantic: !initialSemantic });
+    pushParams({ semantic: initialSemantic ? "false" : undefined });
   }
 
-  const semanticActive = initialSemantic && Boolean(initialJobId);
+  const rankedView = initialSemantic && Boolean(initialJobId);
+  const grouped = rankedView
+    ? groupCandidatesByAffinityTier(initialCandidates)
+    : null;
+  const rankByCandidateId = grouped
+    ? new Map(
+        grouped
+          .flatMap((section) => section.items)
+          .map((candidate, index) => [candidate.id, index + 1] as const)
+      )
+    : null;
 
   return (
     <div>
@@ -80,20 +94,16 @@ export function CandidatesClient({
         title="Candidatos"
         subtitle={`${initialCandidates.length} postulación${initialCandidates.length !== 1 ? "es" : ""} en el sistema`}
         action={
-          <Button
-            variant={semanticActive ? "primary" : "secondary"}
-            size="sm"
-            onClick={toggleSemantic}
-            loading={semanticLoading}
-            disabled={!initialJobId}
-            title={
-              !initialJobId
-                ? "Selecciona una vacante para activar ranking IA"
-                : undefined
-            }
-          >
-            {semanticActive ? "✨ Ranking IA activo" : "Activar ranking IA"}
-          </Button>
+          initialJobId ? (
+            <Button
+              variant={rankedView ? "primary" : "secondary"}
+              size="sm"
+              onClick={toggleSemantic}
+              loading={semanticLoading}
+            >
+              {rankedView ? "✨ Orden por afinidad" : "Orden cronológico"}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -149,9 +159,17 @@ export function CandidatesClient({
         </div>
       </div>
 
-      {semanticActive && (
+      {rankedView && (
         <Alert variant="info" className="mb-4">
-          Candidatos ordenados por afinidad semántica con la vacante seleccionada.
+          Candidatos ordenados por afinidad semántica con la vacante (mayor a
+          menor). Los perfiles con mayor encaje aparecen primero.
+        </Alert>
+      )}
+
+      {!rankedView && initialJobId && (
+        <Alert variant="info" className="mb-4">
+          Mostrando orden cronológico. Activa &quot;Orden por afinidad&quot; para
+          priorizar perfiles con mayor encaje.
         </Alert>
       )}
 
@@ -159,6 +177,35 @@ export function CandidatesClient({
         <Alert variant="info" title="Sin resultados">
           No hay candidatos con los filtros actuales. Sube CVs desde Cargar CV.
         </Alert>
+      ) : grouped ? (
+        <div className="space-y-8">
+          {grouped.map((section) => (
+            <section key={section.tier}>
+              <div className="flex items-center gap-2 mb-3">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-[var(--foreground-muted)]">
+                  {section.label}
+                </h2>
+                <span className="text-xs text-[var(--foreground-muted)]">
+                  ({section.items.length})
+                </span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {section.items.map((c) => {
+                  const rank = rankByCandidateId!.get(c.id)!;
+                  return (
+                    <CandidateCard
+                      key={c.id}
+                      candidate={c}
+                      rank={rank}
+                      highlightTop={rank <= 3}
+                      showJob={false}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
       ) : (
         <>
           <p className="text-sm text-[var(--foreground-muted)] mb-4">
@@ -169,7 +216,10 @@ export function CandidatesClient({
               <CandidateCard
                 key={c.id}
                 candidate={c}
-                rank={semanticActive ? idx + 1 : undefined}
+                rank={
+                  getAffinityScore(c) > 0 ? idx + 1 : undefined
+                }
+                highlightTop={idx < 3 && getAffinityScore(c) >= 75}
                 showJob={!initialJobId}
               />
             ))}

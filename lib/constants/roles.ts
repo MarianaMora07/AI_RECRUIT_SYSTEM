@@ -120,6 +120,41 @@ export const RISK_LEVELS = ["low", "medium", "high"] as const;
 
 export const CRITICAL_STAGES: PipelineStage[] = ["hired", "rejected"];
 
+/** Etapas en orden secuencial del proceso (excluye descarte). */
+export const PIPELINE_LINEAR_STAGES = [
+  "applied",
+  "evaluation",
+  "interview",
+  "interview_approved",
+  "hired",
+] as const;
+
+export type PipelineLinearStage = (typeof PIPELINE_LINEAR_STAGES)[number];
+
+export function isLinearPipelineStage(
+  stage: PipelineStage
+): stage is PipelineLinearStage {
+  return (PIPELINE_LINEAR_STAGES as readonly string[]).includes(stage);
+}
+
+/** Etapa anterior o siguiente en el flujo lineal (un paso a la vez). */
+export function getPipelineAdjacentStage(
+  current: PipelineStage,
+  direction: "next" | "prev"
+): PipelineStage | null {
+  if (current === "rejected") {
+    return direction === "prev" ? "interview" : null;
+  }
+  const index = PIPELINE_LINEAR_STAGES.indexOf(current as PipelineLinearStage);
+  if (index === -1) return null;
+  if (direction === "next") {
+    return index < PIPELINE_LINEAR_STAGES.length - 1
+      ? PIPELINE_LINEAR_STAGES[index + 1]
+      : null;
+  }
+  return index > 0 ? PIPELINE_LINEAR_STAGES[index - 1] : null;
+}
+
 export const MAX_CV_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 export const ALLOWED_CV_MIMES = [

@@ -10,10 +10,12 @@ import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { PIPELINE_STAGE_LABELS, PIPELINE_STAGES } from "@/lib/constants/roles";
 import type { DashboardMetrics } from "@/lib/data/metrics";
+import { InterviewCalendar } from "@/components/dashboard/InterviewCalendar";
 import type {
   PipelinePreviewCandidate,
   RecentJob,
 } from "@/lib/data/dashboard";
+import type { ScheduledInterview } from "@/lib/data/interviews";
 
 const PREVIEW_STAGES = PIPELINE_STAGES.filter((s) => s !== "rejected");
 
@@ -33,10 +35,12 @@ export function DashboardView({
   metrics,
   recentJobs,
   pipelinePreview,
+  scheduledInterviews = [],
 }: {
   metrics: DashboardMetrics;
   recentJobs: RecentJob[];
   pipelinePreview: Record<string, PipelinePreviewCandidate[]>;
+  scheduledInterviews?: ScheduledInterview[];
 }) {
   return (
     <div>
@@ -193,6 +197,15 @@ export function DashboardView({
           </Card>
         </motion.div>
       </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.22 }}
+        className="mb-8"
+      >
+        <InterviewCalendar interviews={scheduledInterviews} />
+      </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}

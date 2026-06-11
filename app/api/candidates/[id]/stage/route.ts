@@ -1,5 +1,6 @@
 import { getAuthenticatedClient, getProfile } from "@/lib/api/auth";
 import { upsertInterviewFeedback } from "@/lib/api/interview-feedback";
+import { upsertInterviewSchedule } from "@/lib/api/interview-schedule";
 import { jsonError, jsonOk, jsonUnauthorized } from "@/lib/api/response";
 import { CANDIDATE_DETAIL_COLUMNS } from "@/lib/constants/queries";
 import {
@@ -115,6 +116,24 @@ export async function PATCH(
     }
   }
 
+  if (parsed.data.stage === "interview" && parsed.data.scheduledAt) {
+    try {
+      await upsertInterviewSchedule(admin, {
+        candidateId: id,
+        jobId: current.job_id,
+        scheduledAt: parsed.data.scheduledAt,
+        scheduledBy: user.id,
+      });
+    } catch (err) {
+      logger.error("interview schedule save failed", {
+        route: "/api/candidates/[id]/stage",
+        candidateId: id,
+        message: err instanceof Error ? err.message : "unknown",
+      });
+      return jsonError("No se pudo programar la entrevista", 500);
+    }
+  }
+
   const { data: candidate, error } = await admin
     .from("candidates")
     .update({
@@ -188,13 +207,14 @@ export async function PATCH(
     });
   }
 
-  if (parsed.data.stage === "interview" && parsed.data.confirmed) {
+  if (parsed.data.stage === "interview") {
     void dispatchN8nEvent("interview.approved", {
       candidateId: candidate.id,
       email: candidate.email,
       fullName: candidate.full_name,
       jobTitle,
       trackingToken: candidate.public_tracking_token,
+      scheduledAt: parsed.data.scheduledAt ?? null,
     });
   }
 
