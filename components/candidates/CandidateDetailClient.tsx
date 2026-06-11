@@ -13,13 +13,26 @@ import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
 import { SlaBadge } from "@/components/ui/SlaBadge";
 import { STAGE_SLA_LABELS } from "@/lib/constants/sla";
-import { PIPELINE_STAGE_LABELS, type PipelineStage } from "@/lib/constants/roles";
+import {
+  isHiringManager,
+  PIPELINE_STAGE_LABELS,
+  type HiringManagerDecisionTarget,
+  type PipelineStage,
+  type UserRole,
+} from "@/lib/constants/roles";
 import { getCandidateScore } from "@/lib/utils/candidate-score";
+import { HiringManagerDecisionCard } from "./HiringManagerDecisionCard";
+import { FormModal } from "@/components/ui/FormModal";
+import { PreOfferForm, type PreOfferData } from "./PreOfferForm";
+import { PreOfferTrigger } from "./PreOfferTrigger";
+import { CopyTrackingLink } from "@/components/track/CopyTrackingLink";
+import { getCandidateTrackingUrl } from "@/lib/utils/candidate-tracking";
 
 export interface CandidateDetailData {
   id: string;
   full_name: string;
   email: string;
+  public_tracking_token?: string | null;
   phone?: string | null;
   pipeline_stage: PipelineStage;
   stage_entered_at?: string | null;
@@ -37,6 +50,23 @@ export interface CandidateDetailData {
     };
   }>;
   jobs?: { title: string; requirements: string } | { title: string; requirements: string }[];
+  interviews?: Array<{
+    id?: string;
+    rating?: number | null;
+    notes?: string | null;
+    approved?: boolean | null;
+    created_at?: string;
+  }> | {
+    id?: string;
+    rating?: number | null;
+    notes?: string | null;
+    approved?: boolean | null;
+    created_at?: string;
+  } | null;
+  candidate_offers?:
+    | PreOfferData
+    | PreOfferData[]
+    | null;
 }
 
 function isRecentCandidate(createdAt?: string) {
@@ -46,15 +76,15 @@ function isRecentCandidate(createdAt?: string) {
 
 export function CandidateDetailClient({
   candidate: initial,
+  canManagePipeline = false,
+  userRole = null,
 }: {
   candidate: CandidateDetailData;
+  canManagePipeline?: boolean;
+  userRole?: UserRole | string | null;
 }) {
   const router = useRouter();
   const [candidate, setCandidate] = useState(initial);
-
-  useEffect(() => {
-    setCandidate(initial);
-  }, [initial]);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [modal, setModal] = useState<{
@@ -62,6 +92,21 @@ export function CandidateDetailClient({
     stage: PipelineStage | null;
   }>({ open: false, stage: null });
   const [updating, setUpdating] = useState(false);
+  const [preOfferOpen, setPreOfferOpen] = useState(false);
+  const [preOffer, setPreOffer] = useState<PreOfferData | null | undefined>(
+    Array.isArray(initial.candidate_offers)
+      ? initial.candidate_offers[0]
+      : initial.candidate_offers
+  );
+
+  useEffect(() => {
+    setCandidate(initial);
+    setPreOffer(
+      Array.isArray(initial.candidate_offers)
+        ? initial.candidate_offers[0]
+        : initial.candidate_offers
+    );
+  }, [initial]);
 
   const score = getCandidateScore(candidate.scores);
   const showAiPending = !score && isRecentCandidate(candidate.created_at);
@@ -86,12 +131,16 @@ export function CandidateDetailClient({
     }
   }
 
-  async function updateStage(stage: PipelineStage, confirmed = false) {
+  async function updateStage(
+    stage: PipelineStage,
+    confirmed = false,
+    feedback?: { rating: number; notes: string }
+  ) {
     setUpdating(true);
     const res = await fetch(`/api/candidates/${candidate.id}/stage`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stage, confirmed }),
+      body: JSON.stringify({ stage, confirmed, feedback }),
     });
     const data = await res.json();
     setUpdating(false);
@@ -109,10 +158,22 @@ export function CandidateDetailClient({
     if (stage === "hired" || stage === "rejected") {
       setModal({ open: true, stage });
     } else {
-      updateStage(stage);
+      void updateStage(stage);
     }
   }
 
+  async function handleHiringManagerDecision(
+    target: HiringManagerDecisionTarget,
+    feedback: { rating: number; notes: string },
+    confirmed = false
+  ) {
+    await updateStage(target, confirmed || target === "rejected", feedback);
+  }
+
+  const showHiringManagerPanel = isHiringManager(userRole);
+  const showPreOffer =
+    canManagePipeline &&
+    candidate.pipeline_stage === "interview_approved";
   const jobTitle = Array.isArray(candidate.jobs)
     ? candidate.jobs[0]?.title
     : candidate.jobs?.title;
@@ -158,6 +219,29 @@ export function CandidateDetailClient({
         <Alert variant="error" className="mb-4" onClose={() => setError("")}>
           {error}
         </Alert>
+      )}
+
+      {canManagePipeline && candidate.public_tracking_token && (
+        <Card className="mb-6 border-[var(--accent)]/20 bg-[var(--accent-soft)]/30">
+          <CardHeader>
+            <CardTitle className="text-base">Enlace de seguimiento para el candidato</CardTitle>
+            <p className="text-sm text-[var(--foreground-muted)]">
+              Comparte este enlace para que consulte su etapa sin depender del correo.
+            </p>
+          </CardHeader>
+          <CopyTrackingLink
+            url={getCandidateTrackingUrl(candidate.public_tracking_token)}
+            candidateName={candidate.full_name}
+            jobTitle={jobTitle}
+          />
+        </Card>
+      )}
+
+      {showPreOffer && (
+        <PreOfferTrigger
+          offer={preOffer}
+          onOpen={() => setPreOfferOpen(true)}
+        />
       )}
 
       {showAiPending && (
@@ -271,24 +355,54 @@ export function CandidateDetailClient({
         </>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Mover etapa</CardTitle>
-        </CardHeader>
-        <div className="flex flex-wrap gap-2">
-          {(Object.keys(PIPELINE_STAGE_LABELS) as PipelineStage[]).map((stage) => (
-            <Button
-              key={stage}
-              size="sm"
-              variant={candidate.pipeline_stage === stage ? "primary" : "secondary"}
-              onClick={() => handleStageClick(stage)}
-              disabled={candidate.pipeline_stage === stage || updating}
-            >
-              {PIPELINE_STAGE_LABELS[stage]}
-            </Button>
-          ))}
-        </div>
-      </Card>
+      {showHiringManagerPanel ? (
+        <HiringManagerDecisionCard
+          currentStage={candidate.pipeline_stage}
+          interview={candidate.interviews}
+          onDecide={handleHiringManagerDecision}
+          loading={updating}
+        />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Mover etapa</CardTitle>
+          </CardHeader>
+          {canManagePipeline ? (
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(PIPELINE_STAGE_LABELS) as PipelineStage[]).map((stage) => (
+                <Button
+                  key={stage}
+                  size="sm"
+                  variant={candidate.pipeline_stage === stage ? "primary" : "secondary"}
+                  onClick={() => handleStageClick(stage)}
+                  disabled={candidate.pipeline_stage === stage || updating}
+                >
+                  {PIPELINE_STAGE_LABELS[stage]}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <Alert variant="info">
+              Tu rol tiene acceso de solo lectura en el pipeline general.
+            </Alert>
+          )}
+        </Card>
+      )}
+
+
+      <FormModal
+        open={preOfferOpen}
+        onClose={() => setPreOfferOpen(false)}
+        title="Formulario de contratación"
+        description="Fit cultural, referencias y propuesta económica antes de contratar."
+      >
+        <PreOfferForm
+          candidateId={candidate.id}
+          initialOffer={preOffer}
+          variant="plain"
+          onSaved={(offer) => setPreOffer(offer)}
+        />
+      </FormModal>
 
       <Modal
         open={modal.open}

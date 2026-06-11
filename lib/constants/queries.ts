@@ -13,7 +13,7 @@ export const CANDIDATE_PIPELINE_EXTENDED_COLUMNS =
   "id, full_name, email, pipeline_stage, job_id, stage_entered_at, jobs(title), scores(fit_score, classification)";
 
 export const CANDIDATE_DETAIL_COLUMNS =
-  "id, full_name, email, phone, cv_storage_path, pipeline_stage, stage_entered_at, job_id, created_at, scores(*), jobs(title, requirements)";
+  "id, full_name, email, phone, cv_storage_path, public_tracking_token, pipeline_stage, stage_entered_at, job_id, created_at, scores(*), jobs(title, requirements), interviews(id, rating, notes, approved, evaluator_id, created_at, updated_at), candidate_offers(id, base_salary, bonus, proposed_start_date, internal_approval_notes, status, updated_at)";
 
 export const PROFILE_COLUMNS =
   "id, email, full_name, role, avatar_url, created_at, updated_at";

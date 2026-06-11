@@ -8,6 +8,8 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
 import { CV_ACCEPT_ATTRIBUTE } from "@/lib/constants/roles";
+import { CopyTrackingLink } from "@/components/track/CopyTrackingLink";
+import { getCandidateTrackingUrl } from "@/lib/utils/candidate-tracking";
 
 interface Job {
   id: string;
@@ -36,6 +38,7 @@ export function UploadClient({
     id: string;
     full_name: string;
     job_id: string;
+    public_tracking_token?: string | null;
   } | null>(null);
 
   function pickFile(next: File | null) {
@@ -135,23 +138,37 @@ export function UploadClient({
         >
           <p>{success}</p>
           {uploadedCandidate && (
-            <p className="mt-2 text-sm">
-              Ver análisis en{" "}
-              <Link
-                href={`/candidates/${uploadedCandidate.id}`}
-                className="font-semibold text-[var(--accent)] hover:underline"
-              >
-                ficha de {uploadedCandidate.full_name}
-              </Link>{" "}
-              o en{" "}
-              <Link
-                href={`/candidates?jobId=${uploadedCandidate.job_id}`}
-                className="font-semibold text-[var(--accent)] hover:underline"
-              >
-                lista de candidatos
-              </Link>
-              .
-            </p>
+            <div className="mt-3 space-y-3 text-sm">
+              <p>
+                Ver análisis en{" "}
+                <Link
+                  href={`/candidates/${uploadedCandidate.id}`}
+                  className="font-semibold text-[var(--accent)] hover:underline"
+                >
+                  ficha de {uploadedCandidate.full_name}
+                </Link>{" "}
+                o en{" "}
+                <Link
+                  href={`/candidates?jobId=${uploadedCandidate.job_id}`}
+                  className="font-semibold text-[var(--accent)] hover:underline"
+                >
+                  lista de candidatos
+                </Link>
+                .
+              </p>
+              {uploadedCandidate.public_tracking_token && (
+                <div>
+                  <p className="mb-2 font-semibold text-[var(--foreground)]">
+                    Enlace para el candidato (seguimiento sin correo):
+                  </p>
+                  <CopyTrackingLink
+                    url={getCandidateTrackingUrl(uploadedCandidate.public_tracking_token)}
+                    candidateName={uploadedCandidate.full_name}
+                    jobTitle={jobs.find((j) => j.id === uploadedCandidate.job_id)?.title}
+                  />
+                </div>
+              )}
+            </div>
           )}
         </Alert>
       )}

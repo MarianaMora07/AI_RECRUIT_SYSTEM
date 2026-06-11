@@ -1,27 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { loginSchema } from "@/lib/validations/auth";
+import { isEmailNotConfirmedError } from "@/lib/auth/email-verification";
 import { Logo } from "@/components/ui/Logo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Alert } from "@/components/ui/Alert";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("verified") === "1") {
+      setInfo("Correo verificado correctamente. Ya puedes iniciar sesión.");
+      return;
+    }
+    if (searchParams.get("error") === "verification_failed") {
+      setError("No se pudo verificar el correo. Solicita un nuevo enlace.");
+    }
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setInfo("");
+    setNeedsVerification(false);
 
     const parsed = loginSchema.safeParse({ email, password });
     if (!parsed.success) {
@@ -38,6 +54,13 @@ export default function LoginPage() {
 
     setLoading(false);
     if (authError) {
+      if (isEmailNotConfirmedError(authError.message)) {
+        setNeedsVerification(true);
+        setError(
+          "Tu correo aún no está verificado. Revisa tu bandeja de entrada antes de iniciar sesión."
+        );
+        return;
+      }
       setError("Credenciales incorrectas. Verifica tu correo y contraseña.");
       return;
     }
@@ -85,9 +108,24 @@ export default function LoginPage() {
                 Accede a tu panel de reclutamiento
               </p>
             </CardHeader>
+            {info && (
+              <Alert variant="success" className="mb-4">
+                {info}
+              </Alert>
+            )}
             {error && (
               <Alert variant="error" className="mb-4">
                 {error}
+                {needsVerification && email && (
+                  <p className="mt-2">
+                    <Link
+                      href={`/verify-email?email=${encodeURIComponent(email)}`}
+                      className="font-semibold underline"
+                    >
+                      Ir a verificación de correo
+                    </Link>
+                  </p>
+                )}
               </Alert>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -123,5 +161,19 @@ export default function LoginPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+          <p className="text-sm text-[var(--foreground-muted)]">Cargando…</p>
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

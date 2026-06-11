@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isEmailVerified } from "@/lib/auth/email-verification";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -29,16 +30,19 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const pathname = request.nextUrl.pathname;
   const isAuthRoute =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/register");
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/verify-email");
+  const isAuthCallback = pathname.startsWith("/auth/callback");
   const isProtected =
-    request.nextUrl.pathname.startsWith("/dashboard") ||
-    request.nextUrl.pathname.startsWith("/jobs") ||
-    request.nextUrl.pathname.startsWith("/candidates") ||
-    request.nextUrl.pathname.startsWith("/pipeline") ||
-    request.nextUrl.pathname.startsWith("/upload") ||
-    request.nextUrl.pathname.startsWith("/settings");
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/jobs") ||
+    pathname.startsWith("/candidates") ||
+    pathname.startsWith("/pipeline") ||
+    pathname.startsWith("/upload") ||
+    pathname.startsWith("/settings");
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
@@ -46,7 +50,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  if (user && !isEmailVerified(user) && isProtected) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/verify-email";
+    if (user.email) url.searchParams.set("email", user.email);
+    return NextResponse.redirect(url);
+  }
+
+  if (user && isEmailVerified(user) && isAuthRoute && !isAuthCallback) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

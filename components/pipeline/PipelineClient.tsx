@@ -47,12 +47,16 @@ export function PipelineClient({
   initialJobId,
   initialStage,
   initialSemantic,
+  canManagePipeline = false,
+  isHiringManager = false,
 }: {
   initialCandidates: PipelineCandidate[];
   initialJobs: JobOption[];
   initialJobId?: string;
   initialStage?: PipelineStage;
   initialSemantic: boolean;
+  canManagePipeline?: boolean;
+  isHiringManager?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -206,6 +210,13 @@ export function PipelineClient({
         </Alert>
       )}
 
+      {isHiringManager && (
+        <Alert variant="info" className="mb-4">
+          Como Hiring Manager puedes evaluar candidatos en etapa Entrevista desde su perfil:
+          calificar, dejar notas y decidir si descartar o aprobar la entrevista técnica.
+        </Alert>
+      )}
+
       {initialCandidates.length === 0 ? (
         <Alert variant="info" title="Sin candidatos">
           No hay candidatos con los filtros actuales. Prueba ampliar la búsqueda.
@@ -288,19 +299,29 @@ export function PipelineClient({
                             </div>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          {PIPELINE_STAGES.filter((s) => s !== stage).map(
-                            (target) => (
-                              <button
-                                key={target}
-                                onClick={() => handleMove(c.id, target)}
-                                className="text-[10px] px-2 py-1 rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] hover:gradient-brand hover:text-white transition-all font-semibold"
-                              >
-                                → {PIPELINE_STAGE_LABELS[target]}
-                              </button>
-                            )
-                          )}
-                        </div>
+                        {canManagePipeline && (
+                          <div className="flex flex-wrap gap-1">
+                            {PIPELINE_STAGES.filter((s) => s !== stage).map(
+                              (target) => (
+                                <button
+                                  key={target}
+                                  onClick={() => handleMove(c.id, target)}
+                                  className="text-[10px] px-2 py-1 rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] hover:gradient-brand hover:text-white transition-all font-semibold"
+                                >
+                                  → {PIPELINE_STAGE_LABELS[target]}
+                                </button>
+                              )
+                            )}
+                          </div>
+                        )}
+                        {isHiringManager && stage === "interview" && (
+                          <Link
+                            href={`/candidates/${c.id}`}
+                            className="inline-block mt-1 text-[10px] font-semibold text-[var(--accent)] hover:underline"
+                          >
+                            Evaluar post-entrevista →
+                          </Link>
+                        )}
                       </Card>
                     );
                   })}

@@ -11,6 +11,7 @@ import { Alert } from "@/components/ui/Alert";
 import { ProfileAvatar } from "@/components/layout/ProfileAvatar";
 import { Badge } from "@/components/ui/Badge";
 import { ChangePasswordForm } from "./ChangePasswordForm";
+import { ROLE_LABELS, type UserRole } from "@/lib/constants/roles";
 
 interface Profile {
   id: string;
@@ -27,6 +28,8 @@ export function SettingsClient({ profile: initial }: { profile: Profile }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const roleLabel =
+    ROLE_LABELS[profile.role as UserRole] ?? profile.role;
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -73,7 +76,7 @@ export function SettingsClient({ profile: initial }: { profile: Profile }) {
             />
             <p className="mt-4 font-bold text-lg">{profile.full_name || "Usuario"}</p>
             <p className="text-sm text-[var(--foreground-muted)]">{profile.email}</p>
-            <Badge variant="info" className="mt-3">{profile.role}</Badge>
+            <Badge variant="info" className="mt-3">{roleLabel}</Badge>
             <p className="mt-4 text-xs text-[var(--foreground-subtle)]">JPG, PNG o WebP · máx. 2MB</p>
           </Card>
         </motion.div>

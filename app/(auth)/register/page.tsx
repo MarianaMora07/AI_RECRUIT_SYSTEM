@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { registerSchema } from "@/lib/validations/auth";
+import { getAuthCallbackUrl } from "@/lib/auth/email-verification";
 import { Logo } from "@/components/ui/Logo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -38,19 +39,23 @@ export default function RegisterPage() {
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
+        emailRedirectTo: getAuthCallbackUrl("/login"),
         data: {
           full_name: parsed.data.fullName,
-          role: parsed.data.role,
+          role: "recruiter",
         },
       },
     });
 
-    setLoading(false);
     if (authError) {
+      setLoading(false);
       setError("No se pudo crear la cuenta. Intenta con otro correo.");
       return;
     }
-    router.push("/dashboard");
+
+    await supabase.auth.signOut();
+    setLoading(false);
+    router.push(`/verify-email?email=${encodeURIComponent(parsed.data.email)}`);
     router.refresh();
   }
 
@@ -65,7 +70,7 @@ export default function RegisterPage() {
             Únete al futuro del reclutamiento
           </h2>
           <p className="text-white/70 leading-relaxed">
-            Crea tu cuenta y comienza a gestionar candidatos con inteligencia artificial en minutos.
+            Crea tu cuenta de reclutador y comienza a gestionar candidatos con inteligencia artificial en minutos.
           </p>
         </div>
       </div>
@@ -80,7 +85,7 @@ export default function RegisterPage() {
             <CardHeader>
               <CardTitle className="text-2xl">Crear cuenta</CardTitle>
               <p className="text-sm text-[var(--foreground-muted)] mt-1">
-                Únete como reclutador
+                Registro para reclutadores — acceso completo al panel ATS
               </p>
             </CardHeader>
             {error && (
@@ -115,7 +120,7 @@ export default function RegisterPage() {
                 required
               />
               <Button type="submit" className="w-full" size="lg" loading={loading}>
-                Registrarse
+                Registrarse como reclutador
               </Button>
             </form>
             <p className="mt-6 text-center text-sm text-[var(--foreground-muted)]">

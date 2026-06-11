@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { fetchPipelineCandidates } from "@/lib/data/candidates";
 import { fetchJobsMinimal } from "@/lib/data/jobs";
+import { getServerAuth, getProfile } from "@/lib/api/auth";
+import { canManagePipeline, isHiringManager } from "@/lib/constants/roles";
 import { PipelineClient } from "@/components/pipeline/PipelineClient";
 import { Spinner } from "@/components/ui/Spinner";
 import {
@@ -31,10 +33,13 @@ async function PipelineContent({
   const stage = parseStage(params.stage);
   const semantic = params.semantic === "true";
 
-  const [candidates, jobs] = await Promise.all([
+  const [candidates, jobs, auth] = await Promise.all([
     fetchPipelineCandidates({ jobId, stage, semantic }),
     fetchJobsMinimal(),
+    getServerAuth(),
   ]);
+
+  const profile = auth.user ? await getProfile(auth.user.id, auth.supabase) : null;
 
   return (
     <PipelineClient
@@ -43,6 +48,8 @@ async function PipelineContent({
       initialJobId={jobId}
       initialStage={stage}
       initialSemantic={semantic}
+      canManagePipeline={canManagePipeline(profile?.role)}
+      isHiringManager={isHiringManager(profile?.role)}
     />
   );
 }

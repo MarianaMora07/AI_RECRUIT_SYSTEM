@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import type { EmbedContentRequest } from "@google/generative-ai";
 import type { AiResponse } from "@/lib/constants/ai-schema";
 import { buildCandidateAnalysisPrompt, type JobContext } from "@/lib/ai/prompt";
 import { parseAiResponse } from "@/lib/ai/parse-response";
@@ -6,10 +7,19 @@ import { containsUnsanitizedPii, sanitizePii } from "@/lib/ai/pii-sanitizer";
 import { withEmbeddingRetry, withGeminiRetry } from "@/lib/ai/retry";
 import { logger } from "@/lib/logger";
 
+/** Must match `vector(768)` columns in Supabase migrations. */
+const EMBEDDING_DIMENSIONS = 768;
+
 function getClient() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
   return new GoogleGenerativeAI(apiKey);
+}
+
+function l2Normalize(values: number[]): number[] {
+  const magnitude = Math.sqrt(values.reduce((sum, value) => sum + value * value, 0));
+  if (magnitude === 0) return values;
+  return values.map((value) => value / magnitude);
 }
 
 export async function generateEmbedding(
@@ -17,11 +27,24 @@ export async function generateEmbedding(
 ): Promise<number[] | null> {
   const primary = process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-001";
   const client = getClient();
+  const content = text.slice(0, 8000);
 
   const response = await withEmbeddingRetry(async (modelName) => {
     const model = client.getGenerativeModel({ model: modelName });
-    const result = await model.embedContent(text.slice(0, 8000));
-    return result.embedding.values;
+    const request = {
+      content: { parts: [{ text: content }] },
+      outputDimensionality: EMBEDDING_DIMENSIONS,
+    } as EmbedContentRequest & { outputDimensionality: number };
+    const result = await model.embedContent(request);
+    const values = result.embedding.values;
+
+    if (values.length !== EMBEDDING_DIMENSIONS) {
+      throw new Error(
+        `expected ${EMBEDDING_DIMENSIONS} dimensions, not ${values.length}`
+      );
+    }
+
+    return l2Normalize(values);
   }, primary);
 
   if (!response) {

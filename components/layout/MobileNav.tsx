@@ -3,17 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
+import { getNavItemsForRole, type UserRole } from "@/lib/constants/roles";
 
-const items = [
-  { href: "/dashboard", label: "Inicio", icon: "🏠" },
-  { href: "/jobs", label: "Vacantes", icon: "💼" },
-  { href: "/upload", label: "Subir", icon: "📤" },
-  { href: "/candidates", label: "Talento", icon: "👥" },
-  { href: "/settings", label: "Perfil", icon: "⚙️" },
-];
+const MOBILE_LABELS: Record<string, string> = {
+  "/dashboard": "Inicio",
+  "/jobs": "Vacantes",
+  "/upload": "Subir",
+  "/candidates": "Talento",
+  "/pipeline": "Pipeline",
+  "/settings": "Perfil",
+};
 
-export function MobileNav() {
+export function MobileNav({ role }: { role?: UserRole | string | null }) {
   const pathname = usePathname();
+  const items = getNavItemsForRole(role).map((item) => ({
+    ...item,
+    label: MOBILE_LABELS[item.href] ?? item.label,
+  }));
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-lg safe-area-pb">

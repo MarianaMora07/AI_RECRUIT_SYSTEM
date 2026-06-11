@@ -1,19 +1,22 @@
 import { redirect } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { DashboardView } from "@/components/dashboard/DashboardView";
+import { NotificationsBanner } from "@/components/dashboard/NotificationsBanner";
 import {
   fetchPipelinePreview,
   fetchRecentJobs,
 } from "@/lib/data/dashboard";
 import { fetchDashboardMetrics } from "@/lib/data/metrics";
+import { fetchNotifications } from "@/lib/data/notifications";
 
 export const revalidate = 15;
 
 export default async function DashboardPage() {
-  const [metrics, recentJobs, pipelinePreview] = await Promise.all([
+  const [metrics, recentJobs, pipelinePreview, notifications] = await Promise.all([
     fetchDashboardMetrics(),
     fetchRecentJobs(5),
     fetchPipelinePreview(3),
+    fetchNotifications(),
   ]);
 
   if (!metrics) {
@@ -29,10 +32,13 @@ export default async function DashboardPage() {
   }
 
   return (
-    <DashboardView
-      metrics={metrics}
-      recentJobs={recentJobs}
-      pipelinePreview={pipelinePreview}
-    />
+    <>
+      <NotificationsBanner notifications={notifications} />
+      <DashboardView
+        metrics={metrics}
+        recentJobs={recentJobs}
+        pipelinePreview={pipelinePreview}
+      />
+    </>
   );
 }

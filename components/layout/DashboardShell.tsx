@@ -3,22 +3,26 @@
 import { useState } from "react";
 import { Sidebar, type ShellProfile } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
+import { NotificationsPanel } from "./NotificationsPanel";
 import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils/cn";
+import type { AppNotification } from "@/lib/data/notifications";
 
 export function DashboardShell({
   children,
   profile,
+  notifications = [],
 }: {
   children: React.ReactNode;
   profile: ShellProfile | null;
+  notifications?: AppNotification[];
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen bg-[var(--background)]">
       <div className="hidden md:flex md:fixed md:inset-y-0 md:left-0 md:z-40">
-        <Sidebar profile={profile} />
+        <Sidebar profile={profile} notifications={notifications} />
       </div>
 
       {mobileOpen && (
@@ -34,7 +38,11 @@ export function DashboardShell({
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <Sidebar profile={profile} onNavigate={() => setMobileOpen(false)} />
+        <Sidebar
+          profile={profile}
+          notifications={notifications}
+          onNavigate={() => setMobileOpen(false)}
+        />
       </div>
 
       <div className="flex flex-1 flex-col md:pl-64">
@@ -48,6 +56,9 @@ export function DashboardShell({
             ☰
           </button>
           <Logo size="sm" />
+          <div className="ml-auto">
+            <NotificationsPanel notifications={notifications} variant="light" />
+          </div>
         </header>
 
         <main className="flex-1 overflow-auto pb-20 md:pb-0">
@@ -57,7 +68,7 @@ export function DashboardShell({
         </main>
       </div>
 
-      <MobileNav />
+      <MobileNav role={profile?.role} />
     </div>
   );
 }

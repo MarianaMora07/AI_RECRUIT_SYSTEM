@@ -108,13 +108,15 @@ export async function POST(request: Request) {
       cv_text: cvText,
       pipeline_stage: "applied",
     })
-    .select("id, full_name, email, pipeline_stage, job_id, created_at")
+    .select("id, full_name, email, pipeline_stage, job_id, created_at, public_tracking_token")
     .single();
 
   if (insertError || !candidate) {
     logger.error("candidate insert failed", {
       route: "/api/upload",
       userId: user.id,
+      message: insertError?.message,
+      code: insertError?.code,
     });
     return jsonError("No se pudo registrar el candidato", 500);
   }
@@ -129,12 +131,13 @@ export async function POST(request: Request) {
     userId: user.id,
     storagePath,
     buffer,
-    n8nPayload: {
+    automationPayload: {
       candidateId: candidate.id,
       email: candidate.email,
       fullName: candidate.full_name,
       jobId,
       jobTitle: job.title,
+      trackingToken: candidate.public_tracking_token,
     },
   };
 
@@ -180,7 +183,7 @@ export async function POST(request: Request) {
       });
     }
 
-    void dispatchN8nEvent("candidate.created", backgroundParams.n8nPayload);
+    void dispatchN8nEvent("candidate.created", backgroundParams.automationPayload);
 
     if (process.env.GEMINI_API_KEY) {
       await processCandidateAi(backgroundParams);

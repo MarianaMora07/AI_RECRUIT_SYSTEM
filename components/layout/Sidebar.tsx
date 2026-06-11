@@ -3,42 +3,43 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
+import { getNavItemsForRole, type UserRole } from "@/lib/constants/roles";
 import { Avatar } from "@/components/ui/Avatar";
 import { Logo } from "@/components/ui/Logo";
 import { LogoutButton } from "./LogoutButton";
+import { NotificationsPanel } from "./NotificationsPanel";
 import { APP_TAGLINE } from "@/lib/constants/branding";
-
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/jobs", label: "Vacantes", icon: "💼" },
-  { href: "/upload", label: "Cargar CV", icon: "📄" },
-  { href: "/candidates", label: "Candidatos", icon: "👥" },
-  { href: "/pipeline", label: "Pipeline", icon: "🔄" },
-  { href: "/settings", label: "Mi perfil", icon: "⚙️" },
-];
+import type { AppNotification } from "@/lib/data/notifications";
 
 export interface ShellProfile {
   full_name?: string | null;
   email?: string;
   avatar_url?: string | null;
+  role?: UserRole | string | null;
 }
 
 export function Sidebar({
   profile,
+  notifications = [],
   onNavigate,
 }: {
   profile: ShellProfile | null;
+  notifications?: AppNotification[];
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const navItems = getNavItemsForRole(profile?.role);
 
   return (
     <aside className="flex h-full w-64 flex-col gradient-dark text-white">
-      <div className="p-5 border-b border-white/10">
-        <Logo size="md" variant="light" />
-        <p className="text-[10px] text-white/50 uppercase tracking-widest mt-2 ml-1">
-          {APP_TAGLINE}
-        </p>
+      <div className="p-5 border-b border-white/10 flex items-start justify-between gap-2">
+        <div>
+          <Logo size="md" variant="light" />
+          <p className="text-[10px] text-white/50 uppercase tracking-widest mt-2 ml-1">
+            {APP_TAGLINE}
+          </p>
+        </div>
+        <NotificationsPanel notifications={notifications} variant="dark" />
       </div>
 
       <Link

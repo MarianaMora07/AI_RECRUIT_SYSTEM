@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { USER_ROLES } from "@/lib/constants/roles";
 
 export const loginSchema = z.object({
   email: z.string().email("Correo inválido"),
@@ -14,7 +13,7 @@ export const registerSchema = z.object({
     .regex(/[A-Z]/, "Incluye al menos una mayúscula")
     .regex(/[0-9]/, "Incluye al menos un número"),
   fullName: z.string().min(2, "Nombre requerido").max(100),
-  role: z.enum(USER_ROLES).default("recruiter"),
+  role: z.literal("recruiter").default("recruiter"),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
