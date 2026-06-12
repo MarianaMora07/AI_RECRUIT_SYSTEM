@@ -107,6 +107,7 @@ docs/              # Tracking, arquitectura, demo script
 
 ## Documentación
 
+- [User stories e implementación](docs/USER_STORIES_IMPLEMENTACION.md)
 - [Seguimiento de fases](docs/PHASE_TRACKING.md)
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Script de demo](docs/DEMO_SCRIPT.md)
