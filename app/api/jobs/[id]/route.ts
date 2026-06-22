@@ -1,8 +1,11 @@
 import { after } from "next/server";
-import { getAuthenticatedClient } from "@/lib/api/auth";
+import { getAuthenticatedClient, getProfile } from "@/lib/api/auth";
 import { processJobContent } from "@/lib/ai/process-job";
 import { jsonError, jsonOk, jsonUnauthorized } from "@/lib/api/response";
 import { JOB_LIST_COLUMNS } from "@/lib/constants/queries";
+import { canDeleteJobs } from "@/lib/constants/roles";
+import { getJobDeletionCheck } from "@/lib/jobs/delete-job";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { updateJobSchema } from "@/lib/validations/jobs";
 
 export async function GET(
@@ -79,9 +82,36 @@ export async function DELETE(
   const { supabase, user } = await getAuthenticatedClient({ strict: true });
   if (!user) return jsonUnauthorized();
 
-  const { id } = await params;
-  const { error } = await supabase.from("jobs").delete().eq("id", id);
+  const profile = await getProfile(user.id, supabase);
+  if (!canDeleteJobs(profile?.role)) {
+    return jsonError("No autorizado", 403);
+  }
 
-  if (error) return jsonError("No se pudo eliminar", 500);
+  const { id } = await params;
+
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!job) return jsonError("Vacante no encontrada", 404);
+
+  const admin = createAdminClient();
+  const deletionCheck = await getJobDeletionCheck(admin, id);
+  if (!deletionCheck.canDelete) {
+    return jsonError(deletionCheck.reason ?? "No se puede eliminar esta vacante", 409);
+  }
+
+  const { error } = await admin.from("jobs").delete().eq("id", id);
+
+  if (error) {
+    return jsonError(
+      error.message.includes("policy")
+        ? "No tienes permiso para eliminar esta vacante. Verifica tu rol o aplica la migración 014 en Supabase."
+        : "No se pudo eliminar la vacante",
+      500
+    );
+  }
   return jsonOk({ deleted: true });
 }

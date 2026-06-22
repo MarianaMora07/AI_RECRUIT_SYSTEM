@@ -3,9 +3,21 @@ import { PIPELINE_STAGES } from "@/lib/constants/roles";
 
 export const createCandidateSchema = z.object({
   jobId: z.string().uuid(),
+  recruiterId: z.string().uuid(),
   fullName: z.string().min(2).max(150),
   email: z.string().email(),
   phone: z.string().max(30).optional(),
+});
+
+export const publicApplySchema = createCandidateSchema;
+
+export const reassignRecruiterSchema = z.object({
+  recruiterId: z.string().uuid(),
+});
+
+export const jobRecruitersPatchSchema = z.object({
+  recruiterIds: z.array(z.string().uuid()),
+  reassignments: z.record(z.string().uuid(), z.string().uuid()).optional(),
 });
 
 export const interviewFeedbackSchema = z.object({

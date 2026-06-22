@@ -16,7 +16,7 @@ export function FormModal({
   title: string;
   description?: string;
   children: React.ReactNode;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "xl";
 }) {
   useEffect(() => {
     if (!open) return;
@@ -48,8 +48,11 @@ export function FormModal({
       />
       <div
         className={cn(
-          "relative flex max-h-[min(90vh,40rem)] w-full flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-xl animate-in fade-in zoom-in-95",
-          size === "lg" ? "max-w-lg" : "max-w-md"
+          "relative flex w-full flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-xl animate-in fade-in zoom-in-95",
+          size === "xl"
+            ? "max-w-5xl max-h-[92vh]"
+            : "max-h-[min(90vh,40rem)]",
+          size === "lg" ? "max-w-lg" : size === "md" ? "max-w-md" : ""
         )}
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--border)] px-5 py-4">

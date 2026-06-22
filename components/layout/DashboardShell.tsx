@@ -6,6 +6,7 @@ import { MobileNav } from "./MobileNav";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils/cn";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import type { AppNotification } from "@/lib/data/notifications";
 
 export function DashboardShell({
@@ -56,7 +57,8 @@ export function DashboardShell({
             ☰
           </button>
           <Logo size="sm" />
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle variant="compact" />
             <NotificationsPanel notifications={notifications} variant="light" />
           </div>
         </header>

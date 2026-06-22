@@ -1,15 +1,21 @@
 import { getAuthenticatedClient } from "@/lib/api/auth";
 import { jsonError, jsonOk, jsonUnauthorized } from "@/lib/api/response";
+import { parseDashboardFilters } from "@/lib/data/dashboard";
+import { fetchDashboardAnalytics } from "@/lib/data/metrics";
 
-export async function GET() {
-  const { supabase, user } = await getAuthenticatedClient();
+export async function GET(request: Request) {
+  const { user } = await getAuthenticatedClient();
   if (!user) return jsonUnauthorized();
 
-  const { data, error } = await supabase.rpc("get_dashboard_metrics");
+  const { searchParams } = new URL(request.url);
+  const filters = parseDashboardFilters(
+    Object.fromEntries(searchParams.entries())
+  );
 
-  if (error || !data) {
+  const result = await fetchDashboardAnalytics(filters);
+  if (!result) {
     return jsonError("No se pudieron cargar las métricas", 500);
   }
 
-  return jsonOk(data);
+  return jsonOk({ ...result.metrics, _legacy: result.isLegacy });
 }

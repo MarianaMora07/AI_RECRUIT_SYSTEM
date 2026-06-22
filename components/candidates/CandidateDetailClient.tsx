@@ -29,6 +29,9 @@ import { PreOfferTrigger } from "./PreOfferTrigger";
 import { ScheduleInterviewModal } from "@/components/pipeline/ScheduleInterviewModal";
 import { CopyTrackingLink } from "@/components/track/CopyTrackingLink";
 import { getCandidateTrackingUrl } from "@/lib/utils/candidate-tracking";
+import { CvViewer } from "@/components/candidates/CvViewer";
+import { RecruiterAssignmentHistory } from "@/components/candidates/RecruiterAssignmentHistory";
+import { RecruiterReassignControl } from "@/components/candidates/RecruiterReassignControl";
 
 export interface CandidateDetailData {
   id: string;
@@ -36,6 +39,10 @@ export interface CandidateDetailData {
   email: string;
   public_tracking_token?: string | null;
   phone?: string | null;
+  cv_storage_path?: string | null;
+  assigned_recruiter_id?: string;
+  job_id?: string;
+  assigned_recruiter?: { id: string; full_name: string | null; avatar_url?: string | null } | { id: string; full_name: string | null; avatar_url?: string | null }[] | null;
   pipeline_stage: PipelineStage;
   stage_entered_at?: string | null;
   created_at?: string;
@@ -191,6 +198,10 @@ export function CandidateDetailClient({
   const jobTitle = Array.isArray(candidate.jobs)
     ? candidate.jobs[0]?.title
     : candidate.jobs?.title;
+  const jobId = candidate.job_id ?? "";
+  const assignedRecruiter = Array.isArray(candidate.assigned_recruiter)
+    ? candidate.assigned_recruiter[0]
+    : candidate.assigned_recruiter;
   const latestInterview = Array.isArray(candidate.interviews)
     ? candidate.interviews[0]
     : candidate.interviews;
@@ -216,6 +227,19 @@ export function CandidateDetailClient({
           {jobTitle && (
             <p className="text-sm text-[var(--foreground-muted)] -mt-4">
               Vacante: <span className="font-semibold">{jobTitle}</span>
+            </p>
+          )}
+          {assignedRecruiter && (
+            <p className="text-sm text-[var(--foreground-muted)] mt-1 flex items-center gap-2">
+              Reclutador asignado:{" "}
+              <span className="font-semibold inline-flex items-center gap-1.5">
+                <Avatar
+                  name={assignedRecruiter.full_name ?? "?"}
+                  src={assignedRecruiter.avatar_url}
+                  size="sm"
+                />
+                {assignedRecruiter.full_name}
+              </span>
             </p>
           )}
         </div>
@@ -267,6 +291,26 @@ export function CandidateDetailClient({
           />
         </Card>
       )}
+
+      <div className="grid md:grid-cols-2 gap-4 md:gap-6 mb-6 items-start">
+        <div className="min-w-0 space-y-4">
+          <RecruiterAssignmentHistory candidateId={candidate.id} userRole={userRole} />
+
+          {jobId && (
+            <RecruiterReassignControl
+              candidateId={candidate.id}
+              jobId={jobId}
+              currentRecruiterId={candidate.assigned_recruiter_id}
+              userRole={userRole}
+              onReassigned={() => router.refresh()}
+            />
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <CvViewer candidateId={candidate.id} />
+        </div>
+      </div>
 
       {showPreOffer && (
         <PreOfferTrigger

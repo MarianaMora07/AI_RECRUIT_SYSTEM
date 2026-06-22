@@ -6,9 +6,11 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/ui/Logo";
 import { Button } from "@/components/ui/Button";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { APP_TAGLINE } from "@/lib/constants/branding";
 
 const utilityLinks = [
+  { label: "Soy candidato", href: "/candidatos" },
   { label: "Plataforma ATS", href: "#servicios" },
   { label: "Soporte", href: "#contacto" },
   { label: "Acceso reclutadores", href: "/login" },
@@ -16,6 +18,7 @@ const utilityLinks = [
 
 const navItems = [
   { label: "Inicio", href: "/" },
+  { label: "Soy candidato", href: "/candidatos" },
   { label: "Servicios", href: "#servicios" },
   { label: "Novedades", href: "#novedades" },
   { label: "Acceso", href: "/login" },
@@ -52,6 +55,7 @@ const slides = [
 ];
 
 const quickLinks = [
+  { label: "Soy candidato", href: "/candidatos", icon: "🎯" },
   { label: "Subir CV", href: "/upload", icon: "📄" },
   { label: "Vacantes", href: "/jobs", icon: "💼" },
   { label: "Pipeline", href: "/pipeline", icon: "🔄" },
@@ -60,6 +64,12 @@ const quickLinks = [
 ];
 
 const services = [
+  {
+    title: "Portal de candidatos",
+    desc: "Aplica a vacantes abiertas, elige tu reclutador y carga tu CV en línea.",
+    href: "/candidatos",
+    icon: "🎯",
+  },
   {
     title: "Análisis con IA",
     desc: "Evaluación automática de CVs con clasificación de seniority y detección de riesgos.",
@@ -133,7 +143,7 @@ export function HomePage() {
   const current = slides[slide];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[var(--background)]">
       {/* Barra superior — estilo institucional Las Condes */}
       <div className="bg-[var(--institutional)] text-white text-xs">
         <div className="max-w-7xl mx-auto px-4 py-2 flex flex-wrap gap-x-6 gap-y-1 justify-center sm:justify-end">
@@ -146,7 +156,7 @@ export function HomePage() {
       </div>
 
       {/* Header principal */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[var(--border)] shadow-sm">
+      <header className="sticky top-0 z-40 bg-[var(--surface)] border-b border-[var(--border)] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <Link href="/">
             <Logo size="md" />
@@ -162,12 +172,20 @@ export function HomePage() {
                 {item.label}
               </Link>
             ))}
+            <ThemeToggle variant="compact" className="ml-1" />
             <Link href="/register">
               <Button size="sm" className="ml-2">Registrarse</Button>
             </Link>
+            <Link href="/candidatos">
+              <Button size="sm" variant="secondary" className="ml-1 border-[var(--accent)] text-[var(--accent)]">
+                Postular
+              </Button>
+            </Link>
           </nav>
 
-          <button
+          <div className="flex items-center gap-2 md:hidden">
+            <ThemeToggle variant="compact" />
+            <button
             type="button"
             className="md:hidden flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--institutional-light)] text-[var(--institutional)]"
             onClick={() => setMobileMenu(!mobileMenu)}
@@ -175,10 +193,11 @@ export function HomePage() {
           >
             ☰
           </button>
+          </div>
         </div>
 
         {mobileMenu && (
-          <div className="md:hidden border-t border-[var(--border)] px-4 py-3 space-y-1 bg-white">
+          <div className="md:hidden border-t border-[var(--border)] px-4 py-3 space-y-1 bg-[var(--surface)]">
             {navItems.map((item) => (
               <Link
                 key={item.label}
@@ -219,8 +238,13 @@ export function HomePage() {
                   {current.desc}
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <Link href={current.href}>
+                  <Link href="/candidatos">
                     <Button size="lg" className="bg-white text-[var(--institutional)] hover:bg-white/90 shadow-lg">
+                      Soy candidato
+                    </Button>
+                  </Link>
+                  <Link href={current.href}>
+                    <Button size="lg" variant="secondary" className="border-white/30 bg-white/10 text-white hover:bg-white/20">
                       {current.cta}
                     </Button>
                   </Link>
@@ -268,6 +292,65 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* Portal de candidatos — destacado arriba */}
+      <section
+        id="candidatos"
+        className="relative overflow-hidden bg-gradient-to-br from-[var(--institutional-light)] via-white to-[var(--accent-soft)]/30 border-b border-[var(--border)]"
+      >
+        <div className="max-w-7xl mx-auto px-4 py-12 md:py-16">
+          <div className="grid md:grid-cols-2 gap-10 items-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
+              <span className="inline-block px-3 py-1 rounded-full bg-[var(--accent)]/15 text-[var(--accent)] text-xs font-bold uppercase tracking-wider mb-4">
+                Para candidatos
+              </span>
+              <h2 className="text-3xl md:text-4xl font-extrabold text-[var(--institutional)] leading-tight mb-4">
+                Postula en minutos a tu próxima oportunidad laboral
+              </h2>
+              <p className="text-[var(--foreground-muted)] leading-relaxed mb-6 max-w-lg">
+                Explora vacantes abiertas, elige al reclutador que te acompañará en el proceso
+                y envía tu CV para ser evaluado en el puesto que buscas.
+              </p>
+              <Link href="/candidatos">
+                <Button size="lg" className="shadow-lg">
+                  Ver vacantes y postular →
+                </Button>
+              </Link>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="grid gap-3"
+            >
+              {[
+                { n: "1", title: "Elige tu vacante", desc: "Tarjetas con las posiciones abiertas" },
+                { n: "2", title: "Elige tu reclutador", desc: "Quién gestionará tu proceso" },
+                { n: "3", title: "Tus datos y CV", desc: "Contacto y carga del currículum" },
+              ].map((item, i) => (
+                <div
+                  key={item.n}
+                  className="flex items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm"
+                  style={{ marginLeft: i * 12 }}
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--institutional)] text-white font-bold">
+                    {item.n}
+                  </span>
+                  <div>
+                    <p className="font-bold text-[var(--institutional)]">{item.title}</p>
+                    <p className="text-sm text-[var(--foreground-muted)]">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* Accesos rápidos */}
       <section className="bg-[var(--institutional-light)] border-y border-[var(--border)]">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -276,7 +359,7 @@ export function HomePage() {
               <Link
                 key={q.label}
                 href={q.href}
-                className="flex shrink-0 items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-[var(--border)] text-sm font-semibold text-[var(--institutional)] hover:shadow-md hover:border-[var(--institutional)]/30 transition-all"
+                className="flex shrink-0 items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--surface)] border border-[var(--border)] text-sm font-semibold text-[var(--institutional)] hover:shadow-md hover:border-[var(--institutional)]/30 transition-all"
               >
                 <span>{q.icon}</span>
                 {q.label}
@@ -304,7 +387,7 @@ export function HomePage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.05 }}
-              className="group rounded-2xl border border-[var(--border)] bg-white p-6 shadow-sm hover:shadow-lg hover:border-[var(--institutional)]/20 transition-all"
+              className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm hover:shadow-lg hover:border-[var(--institutional)]/20 transition-all"
             >
               <span className="text-3xl">{s.icon}</span>
               <h3 className="font-bold text-lg mt-4 text-[var(--institutional)]">{s.title}</h3>
@@ -332,14 +415,14 @@ export function HomePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3 md:justify-end">
-            <Link href="/register">
+            <Link href="/candidatos">
               <Button size="lg" className="bg-white text-[var(--institutional)] hover:bg-white/90">
-                Crear cuenta gratis
+                Soy candidato
               </Button>
             </Link>
-            <Link href="/upload">
+            <Link href="/register">
               <Button size="lg" variant="secondary" className="border-white/30 bg-white/10 text-white hover:bg-white/20">
-                Subir un CV
+                Acceso reclutadores
               </Button>
             </Link>
           </div>
@@ -394,6 +477,7 @@ export function HomePage() {
           <div>
             <h4 className="font-bold mb-3">Acceso</h4>
             <ul className="space-y-2 text-sm text-white/70">
+              <li><Link href="/candidatos" className="hover:text-white">Portal de candidatos</Link></li>
               <li><Link href="/login" className="hover:text-white">Iniciar sesión</Link></li>
               <li><Link href="/register" className="hover:text-white">Registrarse</Link></li>
               <li><Link href="/dashboard" className="hover:text-white">Dashboard</Link></li>

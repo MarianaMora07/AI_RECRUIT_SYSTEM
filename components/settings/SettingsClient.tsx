@@ -11,6 +11,7 @@ import { Alert } from "@/components/ui/Alert";
 import { ProfileAvatar } from "@/components/layout/ProfileAvatar";
 import { Badge } from "@/components/ui/Badge";
 import { ChangePasswordForm } from "./ChangePasswordForm";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { ROLE_LABELS, type UserRole } from "@/lib/constants/roles";
 
 interface Profile {
@@ -87,6 +88,15 @@ export function SettingsClient({ profile: initial }: { profile: Profile }) {
           transition={{ delay: 0.1 }}
           className="md:col-span-2 space-y-6"
         >
+          <Card>
+            <CardHeader>
+              <CardTitle>Apariencia</CardTitle>
+            </CardHeader>
+            <p className="text-sm text-[var(--foreground-muted)] mb-4">
+              Elige entre modo claro u oscuro para toda la plataforma.
+            </p>
+            <ThemeToggle variant="segmented" />
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Información personal</CardTitle>

@@ -5,7 +5,9 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { FormattedRequirements } from "@/components/jobs/FormattedRequirements";
+import { JobDetailModal } from "@/components/jobs/JobDetailModal";
+import { JobRecruitersModal } from "@/components/jobs/JobRecruitersModal";
+import { DeleteJobModal } from "@/components/jobs/DeleteJobModal";
 
 export interface JobCardData {
   id: string;
@@ -17,128 +19,139 @@ export interface JobCardData {
   created_at: string;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  open: "Abierta",
+  draft: "Borrador",
+  closed: "Cerrada",
+};
+
 export function JobCard({
   job,
   highlighted,
+  canAssignRecruiters = false,
+  canManageJobs = true,
+  canDeleteJobs = false,
 }: {
   job: JobCardData;
   highlighted?: boolean;
+  canAssignRecruiters?: boolean;
+  canManageJobs?: boolean;
+  canDeleteJobs?: boolean;
 }) {
-  const [pinned, setPinned] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [recruitersOpen, setRecruitersOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (highlighted && cardRef.current) {
       cardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-      setPinned(true);
+      setDetailOpen(true);
     }
   }, [highlighted]);
 
-  const expanded = pinned;
+  function openDetail() {
+    setDetailOpen(true);
+  }
 
   return (
-    <div
-      ref={cardRef}
-      className="group relative h-full min-h-[220px]"
-      onMouseLeave={() => setPinned(false)}
-    >
-      <Card
-        className={`card-elevated relative h-full min-h-[220px] overflow-hidden transition-shadow duration-200 ${
-          highlighted ? "ring-2 ring-[var(--accent)]/40" : ""
-        } ${expanded ? "shadow-xl z-20" : "group-hover:shadow-xl group-hover:z-20"}`}
-      >
-        <div className="flex flex-col h-full min-h-[220px] p-4 md:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="font-bold text-lg truncate">{job.title}</h3>
-              <p className="text-sm text-[var(--foreground-muted)] mt-1 line-clamp-2">
-                {job.description}
-              </p>
-            </div>
-            <Badge variant={job.status === "open" ? "success" : "default"}>
-              {job.status}
-            </Badge>
-          </div>
-          <div className="mt-auto pt-4 flex flex-wrap gap-2">
-            <Link href={`/candidates?jobId=${job.id}`}>
-              <Button variant="secondary" size="sm">
-                Ver candidatos
-              </Button>
-            </Link>
-            <Link href={`/upload?jobId=${job.id}`}>
-              <Button size="sm">Subir CV</Button>
-            </Link>
-          </div>
-        </div>
-
-        <div
-          className={`absolute inset-0 flex flex-col bg-[var(--surface)] p-4 md:p-5 transition-opacity duration-200 ${
-            expanded
-              ? "opacity-100 pointer-events-auto"
-              : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+    <>
+      <div ref={cardRef} className="h-full min-h-[220px]">
+        <Card
+          className={`card-elevated h-full min-h-[220px] flex flex-col transition-shadow duration-200 hover:shadow-lg ${
+            highlighted ? "ring-2 ring-[var(--accent)]/40" : ""
           }`}
         >
-          <div
-            className="flex-1 flex flex-col min-h-0 cursor-default"
-            onClick={() => setPinned((p) => !p)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setPinned((p) => !p);
-              }
-            }}
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
+            onClick={openDetail}
+            className="flex flex-1 flex-col text-left p-4 md:p-5 cursor-pointer min-h-0 w-full"
           >
-            <div className="flex items-start justify-between gap-2 mb-3 shrink-0">
-              <h3 className="font-bold text-base leading-tight">{job.title}</h3>
-              <Badge variant={job.status === "open" ? "success" : "default"}>
-                {job.status}
-              </Badge>
-            </div>
-
-            <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-1">
-              <section>
-                <p className="text-xs font-bold uppercase tracking-wide text-[var(--foreground-muted)] mb-1.5">
-                  Descripción
-                </p>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            <div className="flex items-start justify-between gap-3 w-full">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-lg leading-tight">{job.title}</h3>
+                <p className="text-sm text-[var(--foreground-muted)] mt-1 line-clamp-3">
                   {job.description}
                 </p>
-              </section>
-              <section>
-                <p className="text-xs font-bold uppercase tracking-wide text-[var(--foreground-muted)] mb-1.5">
-                  Requisitos técnicos
-                </p>
-                <FormattedRequirements
-                  raw={job.requirements}
-                  formatted={job.requirements_formatted}
-                />
-              </section>
+              </div>
+              <Badge variant={job.status === "open" ? "success" : "default"}>
+                {STATUS_LABELS[job.status] ?? job.status}
+              </Badge>
             </div>
-
-            <p className="text-[10px] text-[var(--foreground-muted)] mt-2 shrink-0 lg:hidden">
-              Toca para {pinned ? "cerrar" : "fijar"} el detalle
+            <p className="mt-3 text-xs font-semibold text-[var(--accent)]">
+              Clic para ver detalle completo →
             </p>
-          </div>
+          </button>
 
-          <div className="flex flex-wrap gap-2 pt-3 mt-2 border-t border-[var(--border)] shrink-0">
-            <Link href={`/candidates?jobId=${job.id}`}>
-              <Button variant="secondary" size="sm">
-                Ver candidatos
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 px-4 pb-4 md:px-5 md:pb-5 pt-0 w-full border-t border-[var(--border)] mt-auto"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-wrap gap-2 pt-3">
+              {canAssignRecruiters && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setRecruitersOpen(true)}
+                >
+                  Asignar reclutadores
+                </Button>
+              )}
+              <Link href={`/candidates?jobId=${job.id}`}>
+                <Button variant="secondary" size="sm">
+                  Ver candidatos
+                </Button>
+              </Link>
+              {canManageJobs && (
+                <Link href={`/upload?jobId=${job.id}`}>
+                  <Button size="sm">Subir CV</Button>
+                </Link>
+              )}
+            </div>
+            {canDeleteJobs && (
+              <Button
+                variant="danger"
+                size="sm"
+                className="shrink-0 ml-auto mt-3"
+                onClick={() => setDeleteOpen(true)}
+              >
+                Eliminar
               </Button>
-            </Link>
-            <Link href={`/upload?jobId=${job.id}`}>
-              <Button size="sm">Subir CV</Button>
-            </Link>
-            <Link href={`/pipeline?jobId=${job.id}`}>
-              <Button variant="secondary" size="sm">
-                Pipeline
-              </Button>
-            </Link>
+            )}
           </div>
-        </div>
-      </Card>
-    </div>
+        </Card>
+      </div>
+
+      <JobDetailModal
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        job={job}
+        canAssignRecruiters={canAssignRecruiters}
+        canManageJobs={canManageJobs}
+        canDeleteJobs={canDeleteJobs}
+        onAssignRecruiters={() => setRecruitersOpen(true)}
+        onDelete={() => setDeleteOpen(true)}
+      />
+
+      {canAssignRecruiters && (
+        <JobRecruitersModal
+          open={recruitersOpen}
+          onClose={() => setRecruitersOpen(false)}
+          jobId={job.id}
+          jobTitle={job.title}
+          jobStatus={job.status}
+        />
+      )}
+
+      {canDeleteJobs && (
+        <DeleteJobModal
+          open={deleteOpen}
+          onClose={() => setDeleteOpen(false)}
+          jobId={job.id}
+          jobTitle={job.title}
+        />
+      )}
+    </>
   );
 }

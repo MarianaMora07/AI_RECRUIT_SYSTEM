@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Logo } from "@/components/ui/Logo";
 import { LogoutButton } from "./LogoutButton";
 import { NotificationsPanel } from "./NotificationsPanel";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { APP_TAGLINE } from "@/lib/constants/branding";
 import type { AppNotification } from "@/lib/data/notifications";
 
@@ -83,7 +84,11 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t border-white/10 space-y-3">
+        <div className="flex items-center justify-between gap-2 px-1">
+          <span className="text-xs text-white/50 font-medium">Tema</span>
+          <ThemeToggle variant="compact" className="border-white/20 bg-white/10 text-white hover:bg-white/15" />
+        </div>
         <LogoutButton />
       </div>
     </aside>

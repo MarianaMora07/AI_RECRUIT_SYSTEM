@@ -1,13 +1,16 @@
-import { after } from "next/server";
-import { getAuthenticatedClient } from "@/lib/api/auth";
+import { getAuthenticatedClient, getProfile } from "@/lib/api/auth";
 import { rateLimit } from "@/lib/api/rate-limit";
 import { jsonError, jsonOk, jsonUnauthorized } from "@/lib/api/response";
-import { processCandidateAi } from "@/lib/ai/process-candidate";
-import { dispatchN8nEvent } from "@/lib/n8n/dispatch";
-import { extractCvText } from "@/lib/cv/extract-text";
+import {
+  canAssignJobRecruiters,
+  isAllowedCvMime,
+  MAX_CV_SIZE_BYTES,
+} from "@/lib/constants/roles";
+import {
+  createCandidateFromCv,
+  scheduleCandidateBackgroundProcessing,
+} from "@/lib/candidates/create-from-cv";
 import { logger } from "@/lib/logger";
-import { isAllowedCvMime, MAX_CV_SIZE_BYTES } from "@/lib/constants/roles";
-import { sanitizeFilename } from "@/lib/utils/sanitize-filename";
 
 export async function POST(request: Request) {
   const start = Date.now();
@@ -46,20 +49,57 @@ export async function POST(request: Request) {
     return jsonError("El archivo excede el tamaño máximo de 5MB");
   }
 
+  const profile = await getProfile(user.id, supabase);
+  const role = profile?.role ?? "recruiter";
+
+  if (!canAssignJobRecruiters(role)) {
+    const { data: assignment } = await supabase
+      .from("job_recruiters")
+      .select("recruiter_id")
+      .eq("job_id", jobId)
+      .eq("recruiter_id", user.id)
+      .maybeSingle();
+
+    if (!assignment) {
+      return jsonError(
+        "No estás asignado a esta vacante. Contacta al administrador.",
+        403
+      );
+    }
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  let cvText: string;
-  let job: {
-    id: string;
-    title: string;
-    description: string;
-    requirements: string;
-  } | null = null;
+  const candidateName =
+    typeof fullName === "string" && fullName.trim()
+      ? fullName.trim().slice(0, 150)
+      : "Candidato";
+  const candidateEmail =
+    typeof email === "string" && email.includes("@")
+      ? email.trim()
+      : `candidate-${Date.now()}@placeholder.local`;
 
+  let result;
   try {
-    cvText = await extractCvText(buffer, file.type);
+    result = await createCandidateFromCv({
+      supabase,
+      jobId,
+      assignedRecruiterId: user.id,
+      fullName: candidateName,
+      email: candidateEmail,
+      phone: typeof phone === "string" ? phone.slice(0, 30) : null,
+      file,
+      buffer,
+      changedByUserId: user.id,
+      applicationSource: "manual_upload",
+      route: "/api/upload",
+      actorUserId: user.id,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
+    if (message === "JOB_NOT_FOUND") {
+      return jsonError("Vacante no encontrada", 404);
+    }
     if (message === "GEMINI_REQUIRED_FOR_IMAGE_CV") {
       return jsonError(
         "Para CVs en imagen se requiere GEMINI_API_KEY configurada.",
@@ -71,57 +111,15 @@ export async function POST(request: Request) {
         "No se pudo extraer texto del archivo. Prueba con mejor calidad o un PDF."
       );
     }
+    if (message === "CANDIDATE_INSERT_FAILED") {
+      return jsonError("No se pudo registrar el candidato", 500);
+    }
     return jsonError("No se pudo leer el CV");
   }
 
-  const { data: jobData, error: jobError } = await supabase
-    .from("jobs")
-    .select("id, title, description, requirements")
-    .eq("id", jobId)
-    .single();
+  const { candidate, job, cvText, storagePath } = result;
 
-  if (jobError || !jobData) {
-    return jsonError("Vacante no encontrada", 404);
-  }
-
-  job = jobData;
-
-  const candidateName =
-    typeof fullName === "string" && fullName.trim()
-      ? fullName.trim().slice(0, 150)
-      : "Candidato";
-  const candidateEmail =
-    typeof email === "string" && email.includes("@")
-      ? email.trim()
-      : `candidate-${Date.now()}@placeholder.local`;
-
-  const storagePath = `${jobId}/${Date.now()}-${sanitizeFilename(file.name)}`;
-
-  const { data: candidate, error: insertError } = await supabase
-    .from("candidates")
-    .insert({
-      job_id: jobId,
-      full_name: candidateName,
-      email: candidateEmail,
-      phone: typeof phone === "string" ? phone.slice(0, 30) : null,
-      cv_storage_path: null,
-      cv_text: cvText,
-      pipeline_stage: "applied",
-    })
-    .select("id, full_name, email, pipeline_stage, job_id, created_at, public_tracking_token")
-    .single();
-
-  if (insertError || !candidate) {
-    logger.error("candidate insert failed", {
-      route: "/api/upload",
-      userId: user.id,
-      message: insertError?.message,
-      code: insertError?.code,
-    });
-    return jsonError("No se pudo registrar el candidato", 500);
-  }
-
-  const backgroundParams = {
+  scheduleCandidateBackgroundProcessing({
     candidateId: candidate.id,
     jobId,
     jobTitle: job.title,
@@ -131,6 +129,7 @@ export async function POST(request: Request) {
     userId: user.id,
     storagePath,
     buffer,
+    fileType: file.type,
     automationPayload: {
       candidateId: candidate.id,
       email: candidate.email,
@@ -139,55 +138,8 @@ export async function POST(request: Request) {
       jobTitle: job.title,
       trackingToken: candidate.public_tracking_token,
     },
-  };
-
-  after(async () => {
-    logger.info("background processing started", {
-      route: "/api/upload",
-      userId: user.id,
-      candidateId: candidate.id,
-    });
-
-    const { createAdminClient } = await import("@/lib/supabase/admin");
-    let bgSupabase;
-    try {
-      bgSupabase = createAdminClient();
-    } catch (err) {
-      logger.error("background upload skipped, no admin client", {
-        route: "/api/upload",
-        userId: user.id,
-        message: err instanceof Error ? err.message : "unknown",
-      });
-      if (process.env.GEMINI_API_KEY) {
-        await processCandidateAi(backgroundParams);
-      }
-      return;
-    }
-
-    const { error: uploadError } = await bgSupabase.storage
-      .from("cvs")
-      .upload(storagePath, buffer, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (!uploadError) {
-      await bgSupabase
-        .from("candidates")
-        .update({ cv_storage_path: storagePath })
-        .eq("id", candidate.id);
-    } else {
-      logger.warn("storage upload failed in background", {
-        route: "/api/upload",
-        userId: user.id,
-      });
-    }
-
-    void dispatchN8nEvent("candidate.created", backgroundParams.automationPayload);
-
-    if (process.env.GEMINI_API_KEY) {
-      await processCandidateAi(backgroundParams);
-    }
+    route: "/api/upload",
+    actorUserId: user.id,
   });
 
   logger.info("upload completed", {

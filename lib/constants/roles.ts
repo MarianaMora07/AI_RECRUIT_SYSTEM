@@ -18,9 +18,33 @@ export const ROLE_DESCRIPTIONS: Record<typeof DEFAULT_REGISTER_ROLE, string> = {
     "Acceso completo: vacantes, carga de CVs, pipeline, candidatos y métricas.",
 };
 
+export function canAssignJobRecruiters(
+  role: UserRole | string | null | undefined
+): boolean {
+  return role === "admin" || role === "hiring_manager";
+}
+
+export function canDeleteJobs(
+  role: UserRole | string | null | undefined
+): boolean {
+  return canAssignJobRecruiters(role);
+}
+
+export function canManageJobs(
+  role: UserRole | string | null | undefined
+): boolean {
+  return role === "admin" || role === "recruiter";
+}
+
+export function canUploadCv(
+  role: UserRole | string | null | undefined
+): boolean {
+  return role === "admin" || role === "recruiter";
+}
+
 export const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: "📊", roles: USER_ROLES },
-  { href: "/jobs", label: "Vacantes", icon: "💼", roles: ["admin", "recruiter"] as const },
+  { href: "/jobs", label: "Vacantes", icon: "💼", roles: ["admin", "recruiter", "hiring_manager"] as const },
   { href: "/upload", label: "Cargar CV", icon: "📄", roles: ["admin", "recruiter"] as const },
   {
     href: "/candidates",
