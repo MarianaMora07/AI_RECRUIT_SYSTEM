@@ -102,16 +102,20 @@ export async function fetchFilterOptions(): Promise<{
   const profile = await getProfile(user.id, supabase);
   const isRecruiter = profile?.role === "recruiter";
 
-  let jobsRes = await supabase
+  const jobsResFull = await supabase
     .from("jobs")
     .select("id, title, department, location, priority, work_mode")
     .order("title");
 
-  if (jobsRes.error) {
-    jobsRes = (await supabase
+  let jobs: FilterOptionJob[];
+  if (jobsResFull.error) {
+    const jobsResFallback = await supabase
       .from("jobs")
       .select("id, title")
-      .order("title")) as typeof jobsRes;
+      .order("title");
+    jobs = (jobsResFallback.data ?? []) as FilterOptionJob[];
+  } else {
+    jobs = (jobsResFull.data ?? []) as FilterOptionJob[];
   }
 
   const recruitersRes = isRecruiter
@@ -122,7 +126,6 @@ export async function fetchFilterOptions(): Promise<{
         .eq("role", "recruiter")
         .order("full_name");
 
-  const jobs = (jobsRes.data ?? []) as FilterOptionJob[];
   const departments = [
     ...new Set(jobs.map((j) => j.department).filter(Boolean) as string[]),
   ].sort();
