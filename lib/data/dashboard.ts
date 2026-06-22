@@ -108,7 +108,10 @@ export async function fetchFilterOptions(): Promise<{
     .order("title");
 
   if (jobsRes.error) {
-    jobsRes = await supabase.from("jobs").select("id, title").order("title");
+    jobsRes = (await supabase
+      .from("jobs")
+      .select("id, title")
+      .order("title")) as typeof jobsRes;
   }
 
   const recruitersRes = isRecruiter
